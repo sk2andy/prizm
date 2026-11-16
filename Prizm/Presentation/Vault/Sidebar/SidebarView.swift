@@ -2,17 +2,24 @@ import SwiftUI
 
 // MARK: - SidebarView
 
-/// Left-column sidebar with sections: Menu Items, Folders, Types, Trash.
+/// Left-column sidebar with favorite shortcuts and native navigation sections.
 ///
 /// Each row displays a live item count sourced from `VaultBrowserViewModel.itemCounts`.
 /// The sidebar is always visible, even when a category is empty.
 struct SidebarView: View {
     @Binding var selection: SidebarSelection?
     @State private var sidebarSections: [SidebarSection] = [.menu, .types, .folders, .organizations, .trash]
+    @State private var collapsedSections: Set<SidebarSection> = []
+    @State private var visibleSelections: [SidebarSelection] = []
     let itemCounts: [SidebarSelection: Int]
     let folders: [Folder]
     var organizations: [Organization] = []
     var collections: [OrgCollection] = []
+    var favoriteItems: [VaultItem] = []
+    var faviconLoader: FaviconLoader? = nil
+    var onSelectFavorite: ((VaultItem) -> Void)? = nil
+
+    @Environment(\.colorSchemeContrast) private var contrast
 
     // Folder actions — provided by VaultBrowserViewModel
     var onCreateFolder: ((String) -> Void)?
@@ -58,21 +65,43 @@ struct SidebarView: View {
     }
 
     var body: some View {
-        List(selection: $selection) {
-            ForEach(sidebarSections, id: \.self) { section in
-                // Hide the organizations section when the user has no org memberships.
-                if section == .organizations && organizations.isEmpty { EmptyView() }
-                else {
-                    Section(header: sectionHeader(for: section)) {
-                        renderRows(for: section)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.rowHorizontal) {
+                if !favoriteItems.isEmpty {
+                    favoriteShortcuts
+                }
+                ForEach(sidebarSections, id: \.self) { section in
+                    if section != .organizations || !organizations.isEmpty {
+                        if section == .menu || section == .trash {
+                            VStack(spacing: 3) {
+                                renderRows(for: section)
+                            }
+                        } else {
+                            sectionCard(for: section)
+                        }
                     }
                 }
             }
-            .onMove { from, to in
-                sidebarSections.move(fromOffsets: from, toOffset: to)
+            .padding(.horizontal, Spacing.rowHorizontal)
+            .padding(.vertical, Spacing.rowHorizontal)
+        }
+        .accessibilityIdentifier(AccessibilityID.Sidebar.list)
+        .accessibilityLabel("Sidebar")
+        .onPreferenceChange(SidebarRowsPreferenceKey.self) { visibleSelections = $0 }
+        .onMoveCommand { direction in
+            guard !isCreatingFolder, renamingFolderId == nil,
+                  creatingCollectionInOrg == nil, renamingCollectionId == nil,
+                  let selection, let index = visibleSelections.firstIndex(of: selection) else { return }
+            let offset: Int
+            switch direction {
+            case .up: offset = -1
+            case .down: offset = 1
+            default: return
+            }
+            if visibleSelections.indices.contains(index + offset) {
+                self.selection = visibleSelections[index + offset]
             }
         }
-        .navigationTitle("Prizm")
         .alert("Delete Collection", isPresented: $showDeleteCollectionAlert,
                presenting: collectionToDelete) { col in
             Button("Delete", role: .destructive) {
@@ -84,42 +113,131 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Section Headers
+    // MARK: - Favorite Shortcuts
+
+    private var favoriteShortcuts: some View {
+        VStack(alignment: .leading, spacing: Spacing.headerGap) {
+            Text("Favorites")
+                .font(Typography.fieldLabelProminent)
+                .foregroundStyle(.secondary)
+            HStack(spacing: Spacing.headerGap) {
+                ForEach(favoriteItems.prefix(3)) { item in
+                    Button {
+                        onSelectFavorite?(item)
+                    } label: {
+                        VStack(spacing: Spacing.headerGap) {
+                            favoriteIcon(for: item)
+                                .frame(width: 20, height: 20)
+                            Text(item.name)
+                                .font(Typography.listSubtitle)
+                                .lineLimit(2, reservesSpace: true)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .padding(.horizontal, Spacing.badgeHorizontal)
+                        .frame(maxWidth: .infinity, minHeight: 64)
+                        .background(.primary.opacity(Opacity.cardBorder(contrast)),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                        .contentShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .help(item.name)
+                    .accessibilityLabel("Open \(item.name)")
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.headerGap)
+        .padding(.vertical, Spacing.headerGap)
+    }
 
     @ViewBuilder
-    private func sectionHeader(for section: SidebarSection) -> some View {
-        switch section {
-        case .menu:
-            EmptyView()
-        case .folders:
-            HStack(alignment: .firstTextBaseline) {
-                Text(section.title)
-                Spacer()
+    private func favoriteIcon(for item: VaultItem) -> some View {
+        if case .login(let login) = item.content, let faviconLoader {
+            FaviconView(
+                domain: login.uris.first.flatMap { URL(string: $0.uri)?.host },
+                itemType: .login,
+                loader: faviconLoader,
+                size: 20
+            )
+        } else {
+            Image(systemName: favoriteItemType(for: item).sfSymbol)
+                .font(Typography.sectionHeader)
+                .foregroundStyle(Color.accentColor)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func favoriteItemType(for item: VaultItem) -> ItemType {
+        switch item.content {
+        case .login: .login
+        case .card: .card
+        case .identity: .identity
+        case .secureNote: .secureNote
+        case .sshKey: .sshKey
+        }
+    }
+
+    // MARK: - Grouped Navigation
+
+    private func sectionCard(for section: SidebarSection) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.labelGap) {
+            HStack {
                 Button {
-                    newFolderName = "New Folder"
-                    isCreatingFolder = true
-                    selection = .newFolder
-                    isNewFolderFocused = true
+                    if collapsedSections.contains(section) {
+                        collapsedSections.remove(section)
+                    } else {
+                        collapsedSections.insert(section)
+                    }
                 } label: {
-                    Image(systemName: "plus.circle")
-                        .font(.title3)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.primary)
-                        .offset(y: -4)
-                        .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] }
+                    HStack(spacing: Spacing.labelGap) {
+                        Image(systemName: collapsedSections.contains(section) ? "chevron.right" : "chevron.down")
+                        Text(section.title)
+                        Spacer(minLength: 0)
+                    }
+                    .font(Typography.fieldLabelProminent)
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("New Folder")
-                .accessibilityLabel("New Folder")
-                .padding(.trailing, 14)
+                .accessibilityLabel(section.title)
+                .accessibilityValue(collapsedSections.contains(section) ? "Collapsed" : "Expanded")
+                if section == .folders {
+                    Button {
+                        collapsedSections.remove(.folders)
+                        newFolderName = "New Folder"
+                        isCreatingFolder = true
+                        isNewFolderFocused = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Folder")
+                    .accessibilityLabel("New Folder")
+                }
             }
-        case .trash:
-            EmptyView()
-        case .organizations:
-            Text(section.title)
-        default:
-            Text(section.title)
+            .padding(.horizontal, Spacing.headerGap)
+            .padding(.vertical, Spacing.headerGap)
+            .contextMenu {
+                Button("Move Section Up") { moveSection(section, by: -1) }
+                    .disabled(sidebarSections.first == section)
+                Button("Move Section Down") { moveSection(section, by: 1) }
+                    .disabled(sidebarSections.last == section)
+            }
+            if !collapsedSections.contains(section) {
+                VStack(alignment: .leading, spacing: 3) {
+                    renderRows(for: section)
+                }
+            }
         }
+        .padding(Spacing.labelGap)
+        .background(.primary.opacity(Opacity.cardBorder(contrast)),
+                    in: RoundedRectangle(cornerRadius: Spacing.contentCornerRadius))
+    }
+
+    private func moveSection(_ section: SidebarSection, by offset: Int) {
+        guard let index = sidebarSections.firstIndex(of: section),
+              sidebarSections.indices.contains(index + offset) else { return }
+        sidebarSections.swapAt(index, index + offset)
     }
 
     // MARK: - Row Rendering
@@ -128,25 +246,25 @@ struct SidebarView: View {
     private func renderRows(for section: SidebarSection) -> some View {
         switch section {
         case .menu:
-            SidebarRowView(title: "All Items", systemImage: "square.grid.2x2", selection: .allItems, count: itemCounts[.allItems] ?? 0)
-            SidebarRowView(title: "Favorites", systemImage: "star", selection: .favorites, count: itemCounts[.favorites] ?? 0)
-            SidebarRowView(title: "Codes", systemImage: "clock", selection: .verificationCodes, count: itemCounts[.verificationCodes] ?? 0)
+            SidebarRowView(title: "All Items", systemImage: "square.grid.2x2", selection: .allItems, currentSelection: $selection, count: itemCounts[.allItems] ?? 0)
+            SidebarRowView(title: "Favorites", systemImage: "star", selection: .favorites, currentSelection: $selection, count: itemCounts[.favorites] ?? 0)
+            SidebarRowView(title: "Codes", systemImage: "clock", selection: .verificationCodes, currentSelection: $selection, count: itemCounts[.verificationCodes] ?? 0)
         case .folders:
             if isCreatingFolder {
                 TextField("Name or Parent/Name", text: $newFolderName, onCommit: {
                     commitCreate()
                 })
                 .focused($isNewFolderFocused)
-                .tag(SidebarSelection.newFolder)
                 .help("Nest a folder by adding the parent folder's name followed by a /. Example: Social/Forums")
                 .onExitCommand {
                     isCreatingFolder = false
-                    selection = nil
+                    isNewFolderFocused = false
                 }
             }
             ForEach(folderTree) { node in
                 FolderTreeRow(
                     node: node,
+                    selection: $selection,
                     itemCounts: itemCounts,
                     expandedIds: $expandedFolderIds,
                     renamingFolderId: $renamingFolderId,
@@ -161,17 +279,17 @@ struct SidebarView: View {
                 Text("No folders")
                     .font(Typography.listSubtitle)
                     .foregroundStyle(.secondary)
-                    .tag(SidebarSelection?.none)
             }
         case .types:
             ForEach(ItemType.allCases, id: \.self) { type in
-                SidebarRowView(title: type.displayName, systemImage: type.sfSymbol, selection: .type(type), count: itemCounts[.type(type)] ?? 0)
+                SidebarRowView(title: type.displayName, systemImage: type.sfSymbol, selection: .type(type), currentSelection: $selection, count: itemCounts[.type(type)] ?? 0)
             }
         case .organizations:
             ForEach(organizations) { org in
                 let orgCollections = collections.filter { $0.organizationId == org.id }
                 OrgDisclosureRow(
                     org: org,
+                    selection: $selection,
                     collections: orgCollections,
                     itemCounts: itemCounts,
                     isExpanded: Binding(
@@ -194,14 +312,14 @@ struct SidebarView: View {
                 )
             }
         case .trash:
-            SidebarRowView(title: "Trash", systemImage: "trash", selection: .trash, count: itemCounts[.trash] ?? 0)
+            SidebarRowView(title: "Trash", systemImage: "trash", selection: .trash, currentSelection: $selection, count: itemCounts[.trash] ?? 0)
         }
     }
 
     private func commitCreate() {
         let trimmed = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
         isCreatingFolder = false
-        selection = nil
+        isNewFolderFocused = false
         guard !trimmed.isEmpty else { return }
         onCreateFolder?(trimmed)
     }
@@ -213,6 +331,7 @@ struct SidebarView: View {
 /// or a plain folder row for leaf nodes.
 private struct FolderTreeRow: View {
     let node: FolderTreeNode
+    @Binding var selection: SidebarSelection?
     let itemCounts: [SidebarSelection: Int]
     @Binding var expandedIds: Set<String>
     @Binding var renamingFolderId: String?
@@ -234,6 +353,7 @@ private struct FolderTreeRow: View {
                 ForEach(node.children) { child in
                     FolderTreeRow(
                         node: child,
+                        selection: $selection,
                         itemCounts: itemCounts,
                         expandedIds: $expandedIds,
                         renamingFolderId: $renamingFolderId,
@@ -268,7 +388,6 @@ private struct FolderTreeRow: View {
                 onRenameFolder?(folder.id, newName)
             })
             .focused($isRenameFocused)
-            .tag(SidebarSelection.folder(folder.id))
             .help("Nest a folder by adding the parent folder's name followed by a /. Example: Social/Forums")
             .onExitCommand {
                 renamingFolderId = nil
@@ -278,6 +397,7 @@ private struct FolderTreeRow: View {
             // Real folder — selectable, droppable
             FolderRowLabel(
                 folder: folder,
+                selection: $selection,
                 displayName: node.name,
                 count: itemCounts[.folder(folder.id)] ?? 0,
                 onRename: {
@@ -302,6 +422,7 @@ private struct FolderTreeRow: View {
 /// Extracted to a struct so `@State var isDropTargeted` is per-row.
 private struct FolderRowLabel: View {
     let folder: Folder
+    @Binding var selection: SidebarSelection?
     var displayName: String? = nil
     let count: Int
     var onRename: () -> Void
@@ -312,11 +433,15 @@ private struct FolderRowLabel: View {
     @State private var isDropTargeted = false
 
     var body: some View {
-        Label(displayName ?? folder.name, systemImage: "folder")
-            .font(Typography.sidebarRow)
-            .badge(count)
-            .tag(SidebarSelection.folder(folder.id))
-            .listRowBackground(isDropTargeted ? Color.accentColor.opacity(Opacity.dropTarget(contrast)) : Color.clear)
+        SidebarRowView(
+            title: displayName ?? folder.name,
+            systemImage: "folder",
+            selection: .folder(folder.id),
+            currentSelection: $selection,
+            count: count
+        )
+            .background(isDropTargeted ? Color.accentColor.opacity(Opacity.dropTarget(contrast)) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: Spacing.itemIconCornerRadius))
             .contextMenu {
                 Button("Rename") { onRename() }
                 Divider()
@@ -345,6 +470,7 @@ enum SidebarSection: String, CaseIterable {
 /// The header optionally shows a `+` button when the user can manage collections.
 private struct OrgDisclosureRow: View {
     let org: Organization
+    @Binding var selection: SidebarSelection?
     let collections: [OrgCollection]
     let itemCounts: [SidebarSelection: Int]
     @Binding var isExpanded: Bool
@@ -376,7 +502,6 @@ private struct OrgDisclosureRow: View {
                     commitCreate()
                 })
                 .focused($isNewCollectionFocused)
-                .tag(SidebarSelection.newCollection(organizationId: org.id))
                 .onExitCommand {
                     creatingCollectionInOrg = nil
                     newCollectionName = ""
@@ -387,6 +512,7 @@ private struct OrgDisclosureRow: View {
                 CollectionTreeRow(
                     node: node,
                     org: org,
+                    selection: $selection,
                     itemCounts: itemCounts,
                     renamingCollectionId: $renamingCollectionId,
                     renamingCollectionOrgId: $renamingCollectionOrgId,
@@ -401,20 +527,22 @@ private struct OrgDisclosureRow: View {
                 Text("No collections")
                     .font(Typography.listSubtitle)
                     .foregroundStyle(.secondary)
-                    .tag(SidebarSelection?.none)
             }
         } label: {
             orgHeader
         }
-        .tag(SidebarSelection.organization(org.id))
     }
 
     @ViewBuilder
     private var orgHeader: some View {
         HStack(alignment: .firstTextBaseline) {
-            Label(org.name, systemImage: "building.2")
-                .font(Typography.sidebarRow)
-            Spacer()
+            SidebarRowView(
+                title: org.name,
+                systemImage: "building.2",
+                selection: .organization(org.id),
+                currentSelection: $selection,
+                count: itemCounts[.organization(org.id)] ?? 0
+            )
             if org.canManageCollections {
                 Button {
                     newCollectionName = ""
@@ -453,6 +581,7 @@ private struct OrgDisclosureRow: View {
 private struct CollectionTreeRow: View {
     let node: CollectionTreeNode
     let org: Organization
+    @Binding var selection: SidebarSelection?
     let itemCounts: [SidebarSelection: Int]
     @Binding var renamingCollectionId: String?
     @Binding var renamingCollectionOrgId: String?
@@ -470,6 +599,7 @@ private struct CollectionTreeRow: View {
                     CollectionTreeRow(
                         node: child,
                         org: org,
+                        selection: $selection,
                         itemCounts: itemCounts,
                         renamingCollectionId: $renamingCollectionId,
                         renamingCollectionOrgId: $renamingCollectionOrgId,
@@ -500,17 +630,19 @@ private struct CollectionTreeRow: View {
                 onRenameCollection(col.id, trimmed)
             })
             .focused($isCollectionRenameFocused)
-            .tag(SidebarSelection.collection(col.id))
             .onExitCommand {
                 renamingCollectionId    = nil
                 renamingCollectionOrgId = nil
                 isCollectionRenameFocused = false
             }
         } else if let col = node.collection {
-            Label(node.name, systemImage: "tray.2")
-                .font(Typography.sidebarRow)
-                .badge(itemCounts[.collection(col.id)] ?? 0)
-                .tag(SidebarSelection.collection(col.id))
+            SidebarRowView(
+                title: node.name,
+                systemImage: "tray.2",
+                selection: .collection(col.id),
+                currentSelection: $selection,
+                count: itemCounts[.collection(col.id)] ?? 0
+            )
                 .contextMenu {
                     if org.canManageCollections {
                         Button("Rename") {
@@ -536,15 +668,79 @@ private struct CollectionTreeRow: View {
 // MARK: - SidebarRowView
 
 private struct SidebarRowView: View {
-    let title:       String
+    let title: String
     let systemImage: String
-    let selection:   SidebarSelection
-    let count:       Int
+    let selection: SidebarSelection
+    @Binding var currentSelection: SidebarSelection?
+    let count: Int
+
+    @Environment(\.colorSchemeContrast) private var contrast
+    @State private var isHovered = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        Label(title, systemImage: systemImage)
+        Button {
+            currentSelection = selection
+            isFocused = true
+        } label: {
+            HStack(spacing: Spacing.headerGap) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                Text(title)
+                    .fontWeight(currentSelection == selection ? .semibold : .regular)
+                    .lineLimit(1)
+                Spacer(minLength: Spacing.labelGap)
+                Text(count.formatted())
+                    .font(Typography.listSubtitle)
+                    .foregroundStyle(.secondary)
+            }
             .font(Typography.sidebarRow)
-            .badge(count)
-            .tag(selection)
+            .padding(.horizontal, Spacing.rowHorizontal)
+            .padding(.vertical, Spacing.rowVertical)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.primary.opacity(currentSelection == selection
+                        ? Opacity.dropTarget(contrast)
+                        : isHovered ? Opacity.cardBorder(contrast) : 0),
+                        in: RoundedRectangle(cornerRadius: Spacing.itemIconCornerRadius))
+            .contentShape(RoundedRectangle(cornerRadius: Spacing.itemIconCornerRadius))
+        }
+        .buttonStyle(.plain)
+        .focusable()
+        .focused($isFocused)
+        .onChange(of: currentSelection) { _, newSelection in
+            if newSelection == selection { isFocused = true }
+        }
+        .onHover { isHovered = $0 }
+        .help(title)
+        .preference(key: SidebarRowsPreferenceKey.self, value: [selection])
+        .accessibilityLabel(title)
+        .accessibilityValue("\(count) items")
+        .accessibilityAddTraits(currentSelection == selection ? .isSelected : [])
+        .accessibilityIdentifier(accessibilityID)
+    }
+
+    private var accessibilityID: String {
+        switch selection {
+        case .personal: "sidebar.personal"
+        case .allItems: AccessibilityID.Sidebar.allItems
+        case .favorites: AccessibilityID.Sidebar.favorites
+        case .verificationCodes: "sidebar.codes"
+        case .trash: AccessibilityID.Sidebar.trash
+        case .type(let type): AccessibilityID.Sidebar.type(type.rawValue)
+        case .folder(let id): "sidebar.folder.\(id)"
+        case .organization(let id): "sidebar.organization.\(id)"
+        case .collection(let id): "sidebar.collection.\(id)"
+        case .newFolder: "sidebar.newFolder"
+        case .newCollection(let id): "sidebar.newCollection.\(id)"
+        }
+    }
+}
+
+nonisolated private struct SidebarRowsPreferenceKey: PreferenceKey {
+    static var defaultValue: [SidebarSelection] { [] }
+
+    static func reduce(value: inout [SidebarSelection], nextValue: () -> [SidebarSelection]) {
+        value.append(contentsOf: nextValue())
     }
 }

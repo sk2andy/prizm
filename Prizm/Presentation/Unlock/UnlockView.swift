@@ -7,7 +7,7 @@ import SwiftUI
 /// The vault unlock screen shown to returning users (User Story 2, FR-003, FR-039).
 ///
 /// Modelled after the macOS Passwords lock screen: app icon with biometric badge,
-/// title "Prizm Is Locked", email inline in the subtitle, and a single centered
+/// title "Luma Is Locked", email inline in the subtitle, and a single centered
 /// password field. Biometric unlock auto-triggers on appearance; the user can also
 /// type their password and press Return.
 struct UnlockView: View {
@@ -40,7 +40,7 @@ struct UnlockView: View {
             .padding(.bottom, 16)
 
             // MARK: Title
-            Text("Prizm Is Locked")
+            Text("Luma Is Locked")
                 .font(Typography.screenHeading)
                 .accessibilityIdentifier(AccessibilityID.Unlock.headerTitle)
                 .padding(.bottom, 6)

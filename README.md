@@ -1,11 +1,11 @@
 <div align="center">
 
-# Prizm
+# Luma
 
-[![CI](https://github.com/b0x42/prizm/actions/workflows/ci.yml/badge.svg)](https://github.com/b0x42/prizm/actions/workflows/ci.yml)
+[![Upstream CI](https://github.com/b0x42/prizm/actions/workflows/ci.yml/badge.svg)](https://github.com/b0x42/prizm/actions/workflows/ci.yml)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange.svg)](https://swift.org/)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-blue.svg)](https://www.apple.com/macos/)
-[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![MIT + Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-green.svg)](LICENSE)
 
 Native macOS client for Vaultwarden and self-hosted Bitwarden, built in Swift.
 
@@ -15,25 +15,43 @@ Native macOS client for Vaultwarden and self-hosted Bitwarden, built in Swift.
 
 ---
 
+## About this fork
+
+Luma is [André's fork, `sk2andy/prizm`](https://github.com/sk2andy/prizm), derived from [Prizm by Benjamin (`b0x42`)](https://github.com/b0x42/prizm). The original app, vault integration, and security architecture come from that project. Benjamin's copyright and the [MIT license with Commons Clause](LICENSE) are retained.
+
+The `feat/arc-redesign` branch explores an Arc-inspired macOS interface: a tinted sidebar with favorite tiles, collapsible groups, personal and organization selectors, and a profile footer. Search sits above the item list and covers the full vault across folders and organizations; selecting a sidebar category returns to browsing that category. Each column has its own minimum width, and the window minimum adjusts when the sidebar is hidden. Existing folders, organizations, collections, and item actions remain available.
+
+The macOS 15 compatibility contribution is tracked separately in [upstream PR #88](https://github.com/b0x42/prizm/pull/88). This interface redesign belongs to this fork and is not part of that PR. Arc provides visual inspiration only; this fork is not affiliated with Arc or Bitwarden.
+
 <div align="center">
-  <img alt="Prizm: verification codes, organisations and collections, folders and search, and every item type including attachments, in a native macOS app" src="assets/collage.png" width="100%">
+  <img alt="Luma: Arc-inspired sidebar, global search above the item list, and native vault details" src="assets/collage.png" width="100%">
 </div>
+
+### Screenshots
+
+Actual app views using demonstration vault data.
+
+| Login · Light | Login · Dark |
+|---|---|
+| ![Login details in light appearance](assets/screenshots/login-light.png) | ![Login details in dark appearance](assets/screenshots/login-dark.png) |
+| **Verification codes** | **Card details** |
+| ![Verification codes with the redesigned sidebar](assets/screenshots/codes.png) | ![Card details with the redesigned sidebar](assets/screenshots/card.png) |
 
 ---
 
-## Why Prizm
+## Why Luma
 
 The official Bitwarden desktop app is built with Electron — a Chromium-based web wrapper. It works, but it doesn't feel like a Mac app.
 
-Prizm fills that gap: a fully native macOS client, built in SwiftUI, that connects to the same self-hosted Vaultwarden or Bitwarden server you already run. It looks and behaves like a real Mac app because it is one.
+Luma builds on Prizm's approach: a fully native macOS client, built in SwiftUI, that connects to the same self-hosted Vaultwarden or Bitwarden server you already run. It looks and behaves like a real Mac app because it is one.
 
-If you self-host your passwords and care about software quality on your own machine, Prizm is for you.
+If you self-host your passwords and care about software quality on your own machine, Luma is for you.
 
 ### Mission & Principles
 
-Prizm exists to give macOS users a native, auditable, trustworthy interface to their self-hosted password vault.
+Luma carries forward Prizm's aim to give macOS users a native, auditable, trustworthy interface to their self-hosted password vault.
 
-**Native-first.** SwiftUI only. No Electron, no web views, no compromise on the Mac experience.
+**Native-first.** SwiftUI with native AppKit controls where needed. No Electron or web views.
 
 **Security-first.** No hand-rolled crypto. Every algorithm is a vetted standard with a public specification. Every security decision is documented so you can verify it.
 
@@ -45,7 +63,8 @@ Prizm exists to give macOS users a native, auditable, trustworthy interface to t
 
 - **Full vault management** — browse, create, edit, delete, and restore all item types (logins, cards, identities, secure notes, SSH keys) with Trash and favourites support
 - **Organisation & collection support** — view and manage items across organisations; collections shown as a collapsible tree in the sidebar with item counts; create, rename, and delete collections (admin/manager role); org items encrypted with RSA-unwrapped organisation keys
-- **Folder organization** — create, rename, and delete folders; nested subfolders via `/` naming convention with collapsible tree view; drag-and-drop items onto folders; folder-scoped search
+- **Folder organization** — create, rename, and delete folders; nested subfolders via `/` naming convention with collapsible tree view; drag-and-drop items onto folders
+- **Arc-inspired interface** — favorite tiles in the sidebar, an inset list and detail area, and full-vault search directly above the item list
 - **Built for power users** — ⌘F global search with match highlighting, ⌘N new item, ⌘L lock, one-keystroke copy for username / password / website, Option to reveal masked fields. [Full shortcut list](#shortcuts)
 - **File attachments** — upload, download, open, and delete encrypted file attachments on any vault item; drag-and-drop batch upload; two-layer AES-256-CBC + HMAC-SHA256 encryption with per-attachment keys
 - **Verification codes (TOTP)** — see the current one-time code for any login with a TOTP seed, in the item and in a "Codes" list in the sidebar; codes rotate automatically with a countdown, and ⌃⌘C copies the current code (cleared after 30 s). The raw seed is never shown or copied
@@ -63,51 +82,38 @@ Prizm exists to give macOS users a native, auditable, trustworthy interface to t
 
 Tested against Vaultwarden 1.35.4. Older versions may work but are not validated.
 
-The macOS 15 support described here applies to source builds and the next release.
-Existing v1.5.1 downloads and Homebrew packages still require macOS 26.
+### Build this fork from source
 
-### Homebrew (recommended)
-
-```bash
-brew tap b0x42/prizm
-brew install --cask prizm
-```
-
-### Direct Download
-
-**[Download Prizm](https://github.com/b0x42/prizm/releases/latest)**
-
-The app is not notarized. After downloading, right-click (Control-click) the `.app` and choose **Open**, then confirm. You only need to do this once. After that, you can open it normally.
-
-macOS will also show a **"Prizm wants to use your login keychain"** prompt on first launch — click **Allow**. This is expected for unsigned apps; Prizm uses it to store credentials securely.
-
-Alternatively, from Terminal:
+The redesigned fork is currently a source build; no binary release is provided here. Building requires Xcode 26 and macOS 15.6 or later; the built app supports macOS 15.0 or later.
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Prizm.app
-```
-
-### Build from source
-
-```bash
-git clone https://github.com/b0x42/prizm.git
+git clone --branch feat/arc-redesign https://github.com/sk2andy/prizm.git
 cd prizm
 cp Prizm/LocalConfig.xcconfig.template Prizm/LocalConfig.xcconfig
 # Fill in your Apple Team ID in LocalConfig.xcconfig, then:
 open "Prizm/Prizm.xcodeproj"
 ```
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for full setup instructions, including how to get a free Team ID.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for signing and build instructions, including how to get a free Team ID. Use the fork and branch above instead of the upstream clone command in that guide.
+
+### Original upstream app
+
+The [upstream releases](https://github.com/b0x42/prizm/releases) and Homebrew commands below install Benjamin's original Prizm, **not this fork's redesigned interface**. Check the upstream release notes for its macOS requirements.
+
+```bash
+brew tap b0x42/prizm
+brew install --cask prizm
+```
 
 ## Privacy & Security
 
-Prizm collects nothing. No telemetry, no analytics, no crash reporting, no usage data. There is no Prizm server — the app talks exclusively to your Vaultwarden or Bitwarden instance. Nothing leaves your server.
+Luma collects nothing. No telemetry, no analytics, no crash reporting, no usage data. There is no Luma server — the app talks exclusively to your Vaultwarden or Bitwarden instance. Nothing leaves your server.
 
 All cryptography runs locally on your device:
 
 - **Argon2id key derivation** (RFC 9106, memory-hard) — makes offline brute-force attacks computationally infeasible
-- **AES-256-CBC + HMAC-SHA256** authenticated encryption — all vault data stays encrypted in memory and in transit
-- **RSA-OAEP-SHA1 organisation key unwrapping** (Security.framework) — organisation symmetric keys are RSA-wrapped per member; Prizm unwraps them at sync time using your account's private key, following the Bitwarden protocol
+- **AES-256-CBC + HMAC-SHA256** authenticated encryption — encrypted vault payloads; entries are decrypted locally while the vault is unlocked
+- **RSA-OAEP-SHA1 organisation key unwrapping** (Security.framework) — organisation symmetric keys are RSA-wrapped per member; Luma unwraps them at sync time using your account's private key, following the Bitwarden protocol
 - **macOS Keychain** storage (device-only, `WhenUnlockedThisDeviceOnly`) — session keys never touch iCloud
 
 The app is open source. Verify these claims by reading the code. See [SECURITY.md](SECURITY.md) for the full threat model, algorithm specifications, and what the app does not protect against. See [ACCESSIBILITY.md](ACCESSIBILITY.md) for the WCAG 2.1 conformance statement.
@@ -117,6 +123,9 @@ The app is open source. Verify these claims by reading the code. See [SECURITY.m
 | Shortcut | Action |
 |---|---|
 | ⌘F | Global search |
+| ⌘K | Focus vault search directly |
+| ⌘[ / ⌘] | Back / forward through visited categories and items |
+| ⌃⌘S | Show or hide sidebar |
 | ⌘N | New item |
 | ⌘L | Lock vault |
 | ⌘E | Edit selected item |
@@ -127,19 +136,11 @@ The app is open source. Verify these claims by reading the code. See [SECURITY.m
 | ⇧⌘Q | Sign out |
 | ⌥ (hold) | Reveal masked fields |
 
-Any shortcut can be remapped in **System Settings → Keyboard → Keyboard Shortcuts → App Shortcuts**. Add a rule for Prizm with the exact menu item name and your preferred key combination.
+Any shortcut can be remapped in **System Settings → Keyboard → Keyboard Shortcuts → App Shortcuts**. Add a rule for Luma with the exact menu item name and your preferred key combination.
 
-## Roadmap
+## Development direction
 
-| Now | Next | Later |
-|---|---|---|
-| Background sync | Watchtower / breach check | Passkey support |
-| Multiple accounts | Bitwarden cloud login | Browser auto-fill extension |
-| | | Full support for KDBX 4 (KeePass) |
-
-**Now** — actively in development. **Next** — planned for the following 3–6 months. **Later** — on the list with no fixed timeline.
-
-Want to shift something up the list? [Open an issue](https://github.com/b0x42/prizm/issues) — priorities are driven by user feedback.
+This fork focuses on the interface redesign described above. The [original project's roadmap](https://github.com/b0x42/prizm#roadmap) belongs to upstream and is not a delivery commitment for this fork. Report fork-specific issues in [sk2andy/prizm](https://github.com/sk2andy/prizm/issues).
 
 ## Known Limitations
 
@@ -159,4 +160,4 @@ Pull requests welcome. Please open an issue first for anything significant.
 
 ---
 
-*Not affiliated with Bitwarden, Inc., 8bit Solutions LLC, or the Vaultwarden project.*
+*Not affiliated with Arc, The Browser Company, Bitwarden, Inc., 8bit Solutions LLC, or the Vaultwarden project.*

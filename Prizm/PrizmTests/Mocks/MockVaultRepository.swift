@@ -59,6 +59,8 @@ final class MockVaultRepository: VaultRepository {
         switch selection {
         case .allItems:
             return populatedItems
+        case .personal:
+            return populatedItems.filter { !$0.isDeleted && $0.organizationId == nil }
         case .favorites:
             return populatedItems.filter(\.isFavorite)
         case .type(let itemType):

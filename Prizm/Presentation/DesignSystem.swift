@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum Palette {
+    /// Muted selection for vault lists; native controls retain selection contrast.
+    static let listSelection = Color(red: 0.34, green: 0.40, blue: 0.48)
+}
+
 // MARK: - Typography
 //
 // All font roles for the Prizm Presentation layer.
@@ -68,6 +73,12 @@ enum Typography {
 // Prefer these over inline CGFloat literals so that layout rhythm
 // stays consistent and tweaks propagate everywhere at once.
 enum Spacing {
+    static let sidebarMinimumWidth: CGFloat = 240
+    static let itemListMinimumWidth: CGFloat = 300
+    static let codesListMinimumWidth: CGFloat = 380
+    static let detailMinimumWidth: CGFloat = 400
+    /// Vertical inset for stacked labels and values in detail cards.
+    static let fieldRowVertical: CGFloat = 16
     /// Horizontal margin at the left and right edges of the detail pane.
     static let pageMargin:    CGFloat = 20
 
@@ -123,4 +134,23 @@ enum Spacing {
 
     /// Horizontal padding on full-screen auth/sync flows (Login, TOTP, Unlock, SyncProgress).
     static let screenHorizontal: CGFloat = 40
+
+    /// Gap between an item name and its secondary information.
+    static let labelGap: CGFloat = 4
+
+    /// Air around each entry in the native inset list.
+    static let itemRowVertical: CGFloat = 12
+
+    /// Favicon and its inset inside a list-row tile.
+    static let itemIconSize: CGFloat = 22
+    static let itemIconPadding: CGFloat = 7
+    static let itemIconCornerRadius: CGFloat = 9
+
+    /// Larger favicon tile and spacing in the item detail header.
+    static let detailIconSize: CGFloat = 28
+    static let detailIconPadding: CGFloat = 14
+    static let detailHeaderGap: CGFloat = 16
+
+    /// Rounded grouped fields and inset content surfaces.
+    static let contentCornerRadius: CGFloat = 12
 }

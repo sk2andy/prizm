@@ -22,10 +22,13 @@ final class VerificationCodeJourneyTests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["--ui-test-vault"]
         app.launch()
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5),
+                      "Launching the app must present its main window")
         XCTAssertTrue(element("itemList.row.alpha").waitForExistence(timeout: 20), "Seeded vault must appear")
     }
 
     override func tearDownWithError() throws {
+        app?.terminate()
         app = nil
     }
 
@@ -34,19 +37,95 @@ final class VerificationCodeJourneyTests: XCTestCase {
     }
 
     private func openItem(_ id: String) {
+        app.activate()
         let row = element("itemList.row.\(id)")
         XCTAssertTrue(row.waitForExistence(timeout: 10), "Row \(id) should exist")
         row.click()
     }
 
     private func openVerificationCodes() {
-        // Sidebar rows carry no accessibility identifiers, so match the row by its label.
-        let row = app.outlines["Sidebar"].staticTexts["Codes"]
+        app.activate()
+        let row = app.buttons["sidebar.codes"]
         XCTAssertTrue(row.waitForExistence(timeout: 10), "Codes sidebar row should exist")
         row.click()
     }
 
     // MARK: - US1: one item
+
+    func testNewItemShortcut_opensEditorInCurrentWindow() {
+        app.activate()
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertTrue(app.buttons["edit.button.save"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.windows.count, 1)
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
+    func testBackForwardAndQuickSearch() {
+        openItem("alpha")
+        openItem("beta")
+        app.buttons["vault.back"].firstMatch.click()
+        XCTAssertTrue(element("verificationCodes.code.alpha").waitForExistence(timeout: 5))
+        app.buttons["vault.forward"].firstMatch.click()
+        XCTAssertTrue(element("verificationCodes.code.beta").waitForExistence(timeout: 5))
+
+        app.typeKey("k", modifierFlags: .command)
+        app.searchFields.firstMatch.typeText("Gamma")
+        XCTAssertTrue(element("itemList.row.gamma").waitForExistence(timeout: 5))
+        XCTAssertFalse(element("itemList.row.alpha").exists)
+    }
+
+    func testHeaderButtons_remainClickableBelowWindowEdge() {
+        element("create.button.newItem").click()
+        app.menuItems["Login"].firstMatch.click()
+        XCTAssertTrue(app.buttons["edit.button.save"].firstMatch.waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: [])
+
+        openItem("alpha")
+        element("edit.button.edit").click()
+        XCTAssertTrue(app.buttons["edit.button.save"].firstMatch.waitForExistence(timeout: 5))
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
+    func testSidebar_arrowsNavigateVisibleCategories() {
+        app.buttons["sidebar.allItems"].click()
+        app.typeKey(.downArrow, modifierFlags: [])
+        let title = element("vault.listTitle")
+        let favorites = NSPredicate { _, _ in
+            title.label == "Favorites" || title.value as? String == "Favorites"
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: favorites, object: title)],
+                                    timeout: 5), .completed)
+        app.typeKey(.upArrow, modifierFlags: [])
+        XCTAssertTrue(element("itemList.row.alpha").waitForExistence(timeout: 5))
+    }
+
+    func testSearchField_staysAboveListAndDetailHasMinimumWidth() {
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        let divider = app.splitters.element(boundBy: 1)
+        XCTAssertTrue(divider.exists)
+
+        divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo:
+                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+
+        XCTAssertLessThanOrEqual(search.frame.maxX, divider.frame.minX,
+                                 "Search must remain inside the result-list column")
+        XCTAssertGreaterThanOrEqual(app.windows.firstMatch.frame.maxX - divider.frame.maxX, 400)
+
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1))
+            .withOffset(CGVector(dx: -2, dy: -2))
+            .press(forDuration: 0.1, thenDragTo:
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 1)))
+        XCTAssertLessThanOrEqual(search.frame.maxX, divider.frame.minX,
+                                 "Narrowing the window must keep search inside the list")
+        XCTAssertGreaterThanOrEqual(window.frame.maxX - divider.frame.maxX, 400)
+
+        openVerificationCodes()
+        XCTAssertLessThanOrEqual(search.frame.maxX, divider.frame.minX,
+                                 "Codes search must remain inside the list")
+    }
 
     func testDetailPane_showsVerificationCode_forItemWithSeed() {
         openItem("alpha")
@@ -57,6 +136,58 @@ final class VerificationCodeJourneyTests: XCTestCase {
         // and the spoken format by unit tests.
         XCTAssertEqual(code.label, "Verification code for Alpha Bank")
         XCTAssertTrue(element("verificationCodes.copy.alpha").exists)
+    }
+
+    func testSidebarToggle_updatesWindowMinimumAndPreservesColumnMinimums() {
+        let window = app.windows.firstMatch
+        func assertWindowControlsAligned() {
+            let close = window.buttons[XCUIIdentifierCloseWindow]
+            XCTAssertTrue(close.exists)
+            XCTAssertEqual(close.frame.midY - window.frame.minY, 22, accuracy: 1)
+            XCTAssertEqual(element("vault.toggleSidebar").frame.midY, close.frame.midY, accuracy: 1.5)
+        }
+        func shrinkWindow() {
+            window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1))
+                .withOffset(CGVector(dx: -2, dy: -2))
+                .press(forDuration: 0.1, thenDragTo:
+                    window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 1)))
+        }
+        shrinkWindow()
+        assertWindowControlsAligned()
+        let expandedWidth = window.frame.width
+        XCTAssertGreaterThanOrEqual(expandedWidth, 958)
+        let sidebarDivider = app.splitters.element(boundBy: 0)
+        let detailDivider = app.splitters.element(boundBy: 1)
+        XCTAssertGreaterThanOrEqual(sidebarDivider.frame.minX - window.frame.minX, 240)
+        XCTAssertGreaterThanOrEqual(detailDivider.frame.minX - sidebarDivider.frame.maxX, 300)
+        XCTAssertGreaterThanOrEqual(window.frame.maxX - detailDivider.frame.maxX, 400)
+
+        element("vault.toggleSidebar").click()
+        XCTAssertEqual(element("vault.toggleSidebar").label, "Show Sidebar")
+        XCTAssertFalse(app.buttons["sidebar.codes"].isHittable)
+        shrinkWindow()
+        assertWindowControlsAligned()
+        XCTAssertLessThan(window.frame.width, expandedWidth - 200)
+        XCTAssertGreaterThanOrEqual(window.frame.width, 717)
+
+        element("vault.toggleSidebar").click()
+        XCTAssertGreaterThanOrEqual(window.frame.width, expandedWidth)
+        XCTAssertTrue(app.buttons["sidebar.codes"].isHittable)
+        assertWindowControlsAligned()
+    }
+
+    func testEscapeFromEmptyGlobalSearch_restoresCodes() {
+        openVerificationCodes()
+        app.typeKey("f", modifierFlags: .command)
+        let title = element("vault.listTitle")
+        let searching = NSPredicate { _, _ in
+            title.label == "Search Results" || title.value as? String == "Search Results"
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: searching, object: title)],
+                                    timeout: 5), .completed)
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(element("verificationCodes.row.alpha").waitForExistence(timeout: 5))
+        XCTAssertFalse(searching.evaluate(with: title))
     }
 
     func testDetailPane_showsNoCode_forItemWithoutSeed() {
@@ -106,8 +237,8 @@ final class VerificationCodeJourneyTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.click()
         search.typeText("Beta")
-        XCTAssertTrue(element("verificationCodes.row.beta").waitForExistence(timeout: 5))
-        XCTAssertFalse(element("verificationCodes.row.alpha").waitForExistence(timeout: 2))
+        XCTAssertTrue(element("itemList.row.beta").waitForExistence(timeout: 5))
+        XCTAssertFalse(element("itemList.row.alpha").waitForExistence(timeout: 2))
     }
 
     func testList_clickingRow_opensItemInDetailPane() {
@@ -133,7 +264,7 @@ final class VerificationCodeJourneyTests: XCTestCase {
     func testLock_removesCodes() {
         openVerificationCodes()
         XCTAssertTrue(element("verificationCodes.code.alpha").waitForExistence(timeout: 10))
-        app.menuBars.menuBarItems["Prizm"].click()
+        app.menuBars.menuBarItems["Luma"].click()
         app.menuBars.menuItems["Lock Vault"].click()
         XCTAssertFalse(element("verificationCodes.code.alpha").waitForExistence(timeout: 3),
                        "No code may be visible after lock")

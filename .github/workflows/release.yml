@@ -87,17 +87,17 @@ jobs:
 
       - name: Create DMG
         run: |
-          APP="build/Build/Products/Release/Prizm.app"
+          APP="build/Build/Products/Release/Luma.app"
           VERSION="${GITHUB_REF_NAME}"
-          DMG_NAME="Prizm-${VERSION}.dmg"
+          DMG_NAME="Luma-${VERSION}.dmg"
 
           STAGING="dmg-staging"
           mkdir -p "$STAGING"
-          cp -R "$APP" "$STAGING/Prizm.app"
+          cp -R "$APP" "$STAGING/Luma.app"
           ln -s /Applications "$STAGING/Applications"
 
           hdiutil create \
-            -volname "Prizm ${VERSION}" \
+            -volname "Luma ${VERSION}" \
             -srcfolder "$STAGING" \
             -ov \
             -format UDZO \
@@ -118,7 +118,7 @@ jobs:
       # draft. Other contributors keep their credit, and the "New Contributors" section is
       # untouched. The release stays a draft; the maintainer edits and publishes it.
       - name: Remove the maintainer handle from the draft notes
-        # Cosmetic only: if this fails, the Homebrew cask update below must still run.
+        # Cosmetic only: failure must not invalidate the draft release.
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -129,32 +129,3 @@ jobs:
           # BSD sed (macOS runner): -i needs an explicit empty backup suffix.
           sed -i '' "s/ by @${OWNER} in / in /" release-notes.md
           gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
-
-      - name: Update Homebrew cask
-        env:
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${TAP_GITHUB_TOKEN:-}" ]]; then
-            echo "::warning::TAP_GITHUB_TOKEN is not set — skipping Homebrew cask update"
-            exit 0
-          fi
-
-          SHA=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')
-          VERSION="${GITHUB_REF_NAME#v}"
-
-          git clone "https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/b0x42/homebrew-prizm.git" tap
-          cd tap
-
-          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/prizm.rb
-          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA}\"/" Casks/prizm.rb
-          sed -i '' 's/depends_on macos: ".*"/depends_on macos: ">= :sequoia"/' Casks/prizm.rb
-
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git commit -am "Update prizm to ${VERSION}"
-          git push || {
-            echo "::error::Homebrew cask push failed for ${VERSION} — update b0x42/homebrew-prizm manually. SHA: ${SHA}"
-            exit 1
-          }

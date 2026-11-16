@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// Attachments section card in the vault item detail pane.
 ///
 /// Always visible regardless of attachment count — shows an empty state message and
-/// the "Add Attachment" button even when the item has no attachments (task 5.1).
+/// the header's add button even when the item has no attachments (task 5.1).
 ///
 /// Supports:
 /// - Single-file add via `NSOpenPanel` triggered by the "Add Attachment" button (task 5.3).
@@ -43,10 +43,12 @@ struct AttachmentsSectionView: View {
                 } else {
                     attachmentRows
                 }
-
-                Divider()
-                addButton
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            addButton
+                .padding(.trailing, Spacing.pageMargin)
+                .padding(.top, Spacing.cardTop)
         }
         .overlay(dragBorder)
         .onDrop(of: [.fileURL], isTargeted: $isDragTargeted) { providers in
@@ -63,7 +65,7 @@ struct AttachmentsSectionView: View {
         HStack {
             Text("No attachments")
                 .font(Typography.fieldLabel)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
             Spacer()
         }
         .padding(.vertical, Spacing.rowVertical)
@@ -87,23 +89,21 @@ struct AttachmentsSectionView: View {
         Button {
             onAddTapped()
         } label: {
-            HStack(spacing: 6) {
+            Group {
                 if isPicking {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Image(systemName: "paperclip")
+                    Image(systemName: "plus")
                 }
-                Text("Add Attachment")
-                    .font(Typography.fieldValue)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(Typography.fieldValue)
+            .frame(width: 20, height: 20)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isPicking ? Color.secondary : Color.accentColor)
+        .foregroundStyle(isPicking ? Color.secondary : Color.primary)
         .disabled(isPicking)
-        .padding(.vertical, Spacing.rowVertical)
-        .padding(.horizontal, Spacing.rowHorizontal)
+        .help("Add Attachment")
         .accessibilityLabel("Add Attachment")
         .accessibilityIdentifier(AccessibilityID.Attachment.addButton)
     }

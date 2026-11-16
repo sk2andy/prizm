@@ -43,6 +43,64 @@ final class VaultBrowserViewModelGlobalSearchTests: XCTestCase {
 
     // MARK: - 1.1 activateGlobalSearch stores previous selection and sets flag
 
+    func testHistory_navigatesItemsAndClearsForwardBranch() async {
+        XCTAssertFalse(sut.canGoBack)
+        XCTAssertFalse(sut.canGoForward)
+        sut.itemSelection = sampleLogin
+        sut.itemSelection = sampleCard
+
+        await sut.goBack()
+        XCTAssertEqual(sut.itemSelection?.id, sampleLogin.id)
+        XCTAssertTrue(sut.canGoForward)
+        await sut.goForward()
+        XCTAssertEqual(sut.itemSelection?.id, sampleCard.id)
+        await sut.goBack()
+        sut.sidebarSelection = .favorites
+        XCTAssertFalse(sut.canGoForward)
+        await sut.goBack()
+        XCTAssertEqual(sut.sidebarSelection, .allItems)
+        XCTAssertEqual(sut.itemSelection?.id, sampleLogin.id)
+    }
+
+    func testHistory_restoresGlobalSearchWithSelectedResult() async {
+        sut.sidebarSelection = .type(.login)
+        sut.activateGlobalSearch()
+        sut.searchQuery = "Visa"
+        sut.itemSelection = sampleCard
+        sut.sidebarSelection = .allItems
+
+        await sut.goBack()
+
+        XCTAssertTrue(sut.isGlobalSearch)
+        XCTAssertEqual(sut.searchQuery, "Visa")
+        XCTAssertEqual(sut.itemSelection?.id, sampleCard.id)
+    }
+
+    func testHistory_favoriteShortcutIsOneNavigationStep() async {
+        sut.sidebarSelection = .type(.card)
+        sut.itemSelection = sampleCard
+        sut.selectFavorite(sampleLogin)
+
+        await sut.goBack()
+
+        XCTAssertEqual(sut.sidebarSelection, .type(.card))
+        XCTAssertEqual(sut.itemSelection?.id, sampleCard.id)
+    }
+
+    func testHistory_resetClearsSearchSelectionAndDirections() {
+        sut.itemSelection = sampleLogin
+        sut.activateGlobalSearch()
+        sut.searchQuery = "GitHub"
+
+        sut.resetNavigationHistory()
+
+        XCTAssertFalse(sut.canGoBack)
+        XCTAssertFalse(sut.canGoForward)
+        XCTAssertFalse(sut.isGlobalSearch)
+        XCTAssertNil(sut.itemSelection)
+        XCTAssertEqual(sut.searchQuery, "")
+    }
+
     func testActivateGlobalSearch_storesPreviousSelectionAndSetsFlag() {
         sut.sidebarSelection = .type(.login)
         sut.activateGlobalSearch()
@@ -79,6 +137,51 @@ final class VaultBrowserViewModelGlobalSearchTests: XCTestCase {
 
         // Visa is a Card, not a Login — should still appear in global search
         XCTAssertTrue(sut.displayedItems.contains(where: { $0.name == "Visa" }))
+    }
+
+    func testGlobalSearch_fromFolder_includesItemsOutsideFolder() async throws {
+        sut.sidebarSelection = .folder("work")
+        sut.activateGlobalSearch()
+        sut.searchQuery = "Visa"
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(sut.displayedItems.map(\.id), [sampleCard.id])
+    }
+
+    func testFavoriteShortcut_leavesSearchAndKeepsSelectedItem() async throws {
+        sut.sidebarSelection = .type(.card)
+        sut.activateGlobalSearch()
+        sut.searchQuery = "Visa"
+
+        sut.selectFavorite(sampleLogin)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(sut.sidebarSelection, .allItems)
+        XCTAssertEqual(sut.itemSelection?.id, sampleLogin.id)
+        XCTAssertFalse(sut.isGlobalSearch)
+        XCTAssertEqual(sut.searchQuery, "")
+    }
+
+    func testGlobalSearch_fromTrash_allowsCreatingAnItem() {
+        sut.sidebarSelection = .trash
+        sut.activateGlobalSearch()
+        sut.createItemType = .login
+
+        XCTAssertEqual(sut.createItemType, .login)
+    }
+
+    func testFavoriteShortcuts_areSortedAndExcludeTrash() async throws {
+        let favorites = [("z", "Zulu", false), ("a", "Alpha", false), ("deleted", "Deleted", true)]
+            .map { id, name, deleted in
+                VaultItem(id: id, name: name, isFavorite: true, isDeleted: deleted,
+                          creationDate: .now, revisionDate: .now, content: sampleLogin.content)
+            }
+        await vault.populate(items: favorites + [sampleCard], folders: [],
+                             organizations: [], collections: [], syncedAt: .now)
+        sut.refreshCounts()
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(sut.favoriteItems.map(\.id), ["a", "z"])
     }
 
     // MARK: - 1.4 sidebar selection change deactivates global search

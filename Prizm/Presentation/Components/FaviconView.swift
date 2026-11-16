@@ -32,7 +32,7 @@ struct FaviconView: View {
                 Image(systemName: itemType.sfSymbol)
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
             }
         }
         .frame(width: size, height: size)

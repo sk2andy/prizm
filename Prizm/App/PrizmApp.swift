@@ -24,30 +24,40 @@ struct PrizmApp: App {
         let c = AppContainer()
         _container = StateObject(wrappedValue: c)
         _rootVM    = StateObject(wrappedValue: RootViewModel(container: c))
-        NSApplication.shared.activate()
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Luma", id: "vault") {
             rootView
-                .frame(minWidth: 480, minHeight: 360)
+                .frame(minWidth: rootVM.isVaultUnlocked ? nil : 480,
+                       minHeight: rootVM.isVaultUnlocked ? nil : 360)
                 .environment(optionKeyMonitor)
+                #if DEBUG
+                .preferredColorScheme(UITestFixtures.isEnabled && UITestFixtures.isScreenshotMode
+                    ? (UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light)
+                    : nil)
+                #endif
         }
-        .windowStyle(.titleBar)
-        .windowToolbarStyle(.unified(showsTitle: false))
+        .windowStyle(.hiddenTitleBar)
+        .defaultLaunchBehavior(.presented)
+        .restorationBehavior(.disabled)
+        .defaultSize(width: 1100, height: 760)
+        .windowResizability(.contentMinSize)
         .commands {
             // Replace the default "About Prizm" panel with our custom SwiftUI window.
             CommandGroup(replacing: .appInfo) {
-                Button("About Prizm") {
+                Button("About Luma") {
                     openWindow(id: "about")
                 }
             }
 
-            CommandGroup(replacing: .newItem) {
-                Button("New Window") {
-                    NSApp.sendAction(#selector(NSDocumentController.newDocument(_:)), to: nil, from: nil)
-                }
-                .keyboardShortcut("n", modifiers: [.command, .option])
+            CommandGroup(after: .textEditing) {
+                Button("Search Vault") { rootVM.vaultBrowserVM.triggerSearch() }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .disabled(!rootVM.isVaultUnlocked)
+                Button("Quick Search") { rootVM.vaultBrowserVM.triggerSearch() }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .disabled(!rootVM.isVaultUnlocked)
             }
 
             CommandGroup(after: .appInfo) {
@@ -115,7 +125,7 @@ struct PrizmApp: App {
         // so the system title bar would be redundant.
         // contentSize resizability: window sizes to AboutView's fixed 380pt width; no
         // free resize since the content is a fixed-layout info panel.
-        Window("About Prizm", id: "about") {
+        Window("About Luma", id: "about") {
             AboutView()
         }
         .windowStyle(.hiddenTitleBar)
@@ -154,6 +164,7 @@ struct PrizmApp: App {
             VaultBrowserView(
                 viewModel:         rootVM.vaultBrowserVM,
                 faviconLoader:     container.faviconLoader,
+                accountLabel:      rootVM.accountLabel,
                 makeEditViewModel: { [vaultBrowserVM = rootVM.vaultBrowserVM] item in
                     let vm = container.makeItemEditViewModel(
                         for: item,
@@ -299,8 +310,9 @@ final class RootViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 await container.vaultRepo.populate(
-                    items: UITestFixtures.items, folders: [], organizations: [],
-                    collections: [], syncedAt: Date()
+                    items: UITestFixtures.items, folders: UITestFixtures.folders,
+                    organizations: UITestFixtures.organizations,
+                    collections: UITestFixtures.collections, syncedAt: Date()
                 )
                 self.transitionToVault(caller: "UITestFixtures")
 
@@ -456,6 +468,7 @@ final class RootViewModel: ObservableObject {
 
     /// Clears all session data and returns to the login screen.
     func signOut() {
+        vaultBrowserVM.resetNavigationHistory()
         Task {
             do {
                 try await container.authRepo.signOut()
@@ -476,6 +489,7 @@ final class RootViewModel: ObservableObject {
     /// No-op if the vault is not currently unlocked.
     func lockVault() {
         guard isVaultUnlocked else { return }
+        vaultBrowserVM.resetNavigationHistory()
         Task {
             await container.authRepo.lockVault()
             await container.vaultRepo.clearVault()
@@ -491,6 +505,14 @@ final class RootViewModel: ObservableObject {
             }
             logger.info("Vault locked")
         }
+    }
+
+    var accountLabel: String {
+        #if DEBUG
+        if UITestFixtures.isEnabled { return "Alex Morgan" }
+        #endif
+        let email = unlockVM?.email ?? loginVM.email
+        return email.isEmpty ? "Vault unlocked" : email
     }
 
     /// Whether the vault is currently unlocked (vault browser or sync in progress).

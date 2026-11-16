@@ -172,6 +172,7 @@
 		FD30240C189E483CBB5E2E3B /* SidebarSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7044163F8FD4199B4925DD2 /* SidebarSelection.swift */; };
 		FE3145A0627D44CABC58ADCE /* MaskedFieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8197007AA7E412D96A52B14 /* MaskedFieldView.swift */; };
 		FF0FFCD0FDD849318EBBFF77 /* FaviconLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50445584AD814B6EBD971FDA /* FaviconLoader.swift */; };
+		B2D37C90E6A14135A7C5E912 /* RedesignScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D37C90E6A14135A7C5E911 /* RedesignScreenshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -225,7 +226,7 @@
 		4309FCE72F6809A40031C9F4 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		4309FCE92F6809C10031C9F4 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		4309FD0D2F68121F0031C9F4 /* PrizmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PrizmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		434D9EBA2F670B9C00052BCB /* Prizm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prizm.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		434D9EBA2F670B9C00052BCB /* Luma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Luma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		47D6E5C134C44B349511A5DC /* RenameFolderUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenameFolderUseCase.swift; sourceTree = "<group>"; };
 		48A19EBA5CF388FE0AC3FFC1 /* TOTPConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TOTPConfiguration.swift; sourceTree = "<group>"; };
 		4929412F2A6B4670960BFB53 /* RestoreVaultItemUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreVaultItemUseCase.swift; sourceTree = "<group>"; };
@@ -360,6 +361,7 @@
 		FC4A8B1C2F9D34E100123456 /* LocalConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = LocalConfig.xcconfig; sourceTree = SOURCE_ROOT; };
 		FEE3CE5476C5402F9BC3FF76 /* OrgKeyCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrgKeyCache.swift; sourceTree = "<group>"; };
 		FF00112233445566778899AA /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		B2D37C90E6A14135A7C5E911 /* RedesignScreenshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RedesignScreenshotTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -686,7 +688,7 @@
 		434D9EBB2F670B9C00052BCB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				434D9EBA2F670B9C00052BCB /* Prizm.app */,
+				434D9EBA2F670B9C00052BCB /* Luma.app */,
 				4309FD0D2F68121F0031C9F4 /* PrizmTests.xctest */,
 				7532D5A98726D59086E40477 /* PrizmUITests.xctest */,
 			);
@@ -719,6 +721,7 @@
 			isa = PBXGroup;
 			children = (
 				EF7B98A38676009D444D7092 /* VerificationCodeJourneyTests.swift */,
+				B2D37C90E6A14135A7C5E911 /* RedesignScreenshotTests.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -900,7 +903,7 @@
 				59F9054E12044EC582D79C90 /* Argon2Swift */,
 			);
 			productName = Prizm;
-			productReference = 434D9EBA2F670B9C00052BCB /* Prizm.app */;
+			productReference = 434D9EBA2F670B9C00052BCB /* Luma.app */;
 			productType = "com.apple.product-type.application";
 		};
 		F21E5A014FB64080DCADFFF4 /* PrizmUITests */ = {
@@ -1173,6 +1176,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8146C3217048FFCA2F6C0DE7 /* VerificationCodeJourneyTests.swift in Sources */,
+				B2D37C90E6A14135A7C5E912 /* RedesignScreenshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1227,7 +1231,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Prizm.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Prizm";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Luma.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Luma";
 			};
 			name = Debug;
 		};
@@ -1249,7 +1253,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Prizm.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Prizm";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Luma.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Luma";
 			};
 			name = Release;
 		};
@@ -1375,7 +1379,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FC4A8B1C2F9D34E100123456 /* LocalConfig.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Prizm_V2;
+				ASSETCATALOG_COMPILER_APPICON_NAME = LumaIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Prizm/Prizm.entitlements;
@@ -1413,7 +1417,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.5.1;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Luma;
+				PRODUCT_MODULE_NAME = Prizm;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1433,7 +1438,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FC4A8B1C2F9D34E100123456 /* LocalConfig.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Prizm_V2;
+				ASSETCATALOG_COMPILER_APPICON_NAME = LumaIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Prizm/Prizm.entitlements;
@@ -1472,7 +1477,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.5.1;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Luma;
+				PRODUCT_MODULE_NAME = Prizm;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

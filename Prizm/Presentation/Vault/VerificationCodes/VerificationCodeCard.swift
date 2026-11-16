@@ -31,6 +31,7 @@ struct VerificationCodeCard: View {
                     ProgressView().controlSize(.small)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 16) // same as FieldRowView
             .padding(.horizontal, Spacing.rowHorizontal)
         }

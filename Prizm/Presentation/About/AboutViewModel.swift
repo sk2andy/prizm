@@ -15,7 +15,7 @@ struct AboutViewModel {
     let tagline: String
     let gitHubURL: URL
 
-    /// Third-party libraries and protocols that Prizm relies on.
+    /// Upstream project, libraries, and protocols that Luma relies on.
     ///
     /// These appear in the About window's Acknowledgements section so users
     /// can audit the full dependency chain — required by CONSTITUTION §VII
@@ -31,11 +31,14 @@ struct AboutViewModel {
     @MainActor
     static func forCurrentApp() -> AboutViewModel {
         AboutViewModel(
-            appName: Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Prizm",
+            appName: Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String
+                ?? Bundle.main.infoDictionary?["CFBundleName"] as? String
+                ?? "Luma",
             version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
             tagline: "Your secrets. Your server. Our user interface.",
-            gitHubURL: URL(string: "https://github.com/b0x42/prizm")!,
+            gitHubURL: URL(string: "https://github.com/sk2andy/prizm")!,
             acknowledgements: [
+                "Prizm by Benjamin (b0x42) — original app and vault architecture",
                 "Vaultwarden & Bitwarden — server API and vault format",
                 "Argon2Swift — Argon2id key derivation (RFC 9106)",
             ]

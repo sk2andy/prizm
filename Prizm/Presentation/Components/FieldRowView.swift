@@ -30,39 +30,33 @@ struct FieldRowView: View {
     @State private var showCopied = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            // Field content
-            if isMasked {
+        VStack(alignment: .leading, spacing: Spacing.headerGap) {
+            if !label.isEmpty {
                 Text(label)
-                    .font(Typography.fieldValue)
-                Spacer()
-                hoverActions
-                MaskedFieldView(label: label, value: value, itemId: itemId)
-            } else if isMultiLine {
-                VStack(alignment: .leading, spacing: 2) {
-                    if !label.isEmpty {
-                        Text(label)
-                            .font(Typography.fieldValue)
-                    }
+                    .font(Typography.fieldLabel)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(alignment: isMultiLine ? .top : .center, spacing: Spacing.rowHorizontal) {
+                if isMasked {
+                    MaskedFieldView(label: label, value: value, itemId: itemId)
+                } else {
                     Text(value ?? "—")
-                        .font(Typography.fieldValue.monospaced())
+                        .font(Typography.fieldValue)
+                        .foregroundStyle(url == nil ? Color.primary : Color.accentColor)
+                        .lineLimit(isMultiLine ? nil : 1)
                         .textSelection(.enabled)
                 }
-                Spacer()
+
+                Spacer(minLength: Spacing.headerGap)
                 hoverActions
-            } else {
-                Text(label)
-                    .font(Typography.fieldValue)
-                Spacer()
-                hoverActions
-                Text(value ?? "—")
-                    .font(Typography.fieldValue.monospaced())
-                    .lineLimit(1)
-                    .textSelection(.enabled)
-                browserLink
+                if !isMasked && !isMultiLine {
+                    browserLink
+                }
             }
         }
-        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Spacing.fieldRowVertical)
         .padding(.horizontal, Spacing.rowHorizontal)
         .contentShape(Rectangle())
         .onTapGesture { copyValue() }
@@ -90,10 +84,10 @@ struct FieldRowView: View {
         if isHovered || showCopied {
             if value != nil, !(value?.isEmpty ?? true) {
                 Text(showCopied ? "copied" : "copy")
-                    .font(.headline)
+                    .font(Typography.utility.weight(.medium))
                     .textCase(.uppercase)
                     .foregroundStyle(Color.accentColor)
-                    .padding(.trailing, 4)
+                    .padding(.trailing, Spacing.labelGap)
                     .transition(.opacity)
             }
         }

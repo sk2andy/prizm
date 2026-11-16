@@ -65,10 +65,10 @@ actor VaultRepositoryImpl: VaultRepository {
         // Pre-populate static keys with zero counts so itemCounts() returns 0 (not nil)
         // before the first populate() / buildIndexes() call (e.g. empty-vault tests).
         var bySelection: [SidebarSelection: [VaultItem]] = [
-            .allItems: [], .favorites: [], .trash: []
+            .allItems: [], .personal: [], .favorites: [], .trash: []
         ]
         var counts: [SidebarSelection: Int] = [
-            .allItems: 0, .favorites: 0, .trash: 0
+            .allItems: 0, .personal: 0, .favorites: 0, .trash: 0
         ]
         for type in ItemType.allCases {
             bySelection[.type(type)] = []
@@ -120,6 +120,7 @@ actor VaultRepositoryImpl: VaultRepository {
         // Build _bySelection
         var bySelection: [SidebarSelection: [VaultItem]] = [:]
         bySelection[.allItems]  = sorted(active)
+        bySelection[.personal]  = sorted(active.filter { $0.organizationId == nil })
         bySelection[.favorites] = sorted(active.filter(\.isFavorite))
         bySelection[.trash]     = sorted(items.filter(\.isDeleted))
         // Verification Codes: every non-trashed Login with a non-blank seed. Whether the seed is
@@ -162,6 +163,7 @@ actor VaultRepositoryImpl: VaultRepository {
         // Derive _counts from _bySelection — no second filtering pass over items.
         var counts: [SidebarSelection: Int] = [:]
         counts[.allItems]  = bySelection[.allItems]?.count  ?? 0
+        counts[.personal]  = bySelection[.personal]?.count  ?? 0
         counts[.favorites] = bySelection[.favorites]?.count ?? 0
         counts[.trash]     = bySelection[.trash]?.count     ?? 0
         counts[.verificationCodes] = bySelection[.verificationCodes]?.count ?? 0

@@ -17,11 +17,12 @@ final class AboutViewModelTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         sut = AboutViewModel(
-            appName:  "Prizm",
+            appName:  "Luma",
             version:  "1.0",
             tagline:  "Your secrets. Your server. Our user interface.",
-            gitHubURL: URL(string: "https://github.com/b0x42/prizm")!,
+            gitHubURL: URL(string: "https://github.com/sk2andy/prizm")!,
             acknowledgements: [
+                "Prizm by Benjamin (b0x42) — original app and vault architecture",
                 "Vaultwarden & Bitwarden — server API and vault format",
                 "Argon2Swift — Argon2id key derivation (RFC 9106)",
             ]
@@ -36,7 +37,7 @@ final class AboutViewModelTests: XCTestCase {
     func testGitHubURL_isCorrect() {
         XCTAssertEqual(
             sut.gitHubURL.absoluteString,
-            "https://github.com/b0x42/prizm"
+            "https://github.com/sk2andy/prizm"
         )
     }
 
@@ -61,6 +62,16 @@ final class AboutViewModelTests: XCTestCase {
     }
 
     // MARK: - Bundle integration test (main actor)
+
+    func testForCurrentApp_identifiesForkAndCreditsUpstream() {
+        let vm = AboutViewModel.forCurrentApp()
+
+        XCTAssertEqual(vm.appName, "Luma")
+        XCTAssertEqual(vm.gitHubURL.absoluteString, "https://github.com/sk2andy/prizm")
+        XCTAssertTrue(vm.acknowledgements.contains(
+            "Prizm by Benjamin (b0x42) — original app and vault architecture"
+        ))
+    }
 
     @MainActor
     func testForCurrentApp_versionIsNonEmpty() {

@@ -20,30 +20,33 @@ struct ItemRowView: View {
     var searchQuery:   String? = nil
     /// Org name shown as a small badge when the item belongs to an organization (FR task 6.1).
     var orgName:       String? = nil
+    var isSelected:    Bool = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.rowHorizontal) {
             FaviconView(
                 domain:    primaryDomain(for: item),
                 itemType:  itemType(for: item),
                 loader:    faviconLoader,
-                size:      26
+                size:      Spacing.itemIconSize
             )
+            .padding(Spacing.itemIconPadding)
+            .background(.background, in: RoundedRectangle(cornerRadius: Spacing.itemIconCornerRadius))
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Spacing.labelGap) {
                 Text(styledName)
-                    .font(.headline)
+                    .font(Typography.listTitle.weight(.medium))
                     .lineLimit(1)
                 if let subtitle = subtitle(for: item) {
                     Text(styledSubtitle(subtitle))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(Typography.listSubtitle)
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color.secondary)
                         .lineLimit(1)
                 }
                 if let org = orgName {
                     Text(org)
                         .font(Typography.listSubtitle)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color.secondary)
                         .lineLimit(1)
                         .padding(.horizontal, Spacing.badgeHorizontal)
                         .padding(.vertical, Spacing.badgeVertical)
@@ -51,7 +54,8 @@ struct ItemRowView: View {
                 }
             }
         }
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Spacing.itemRowVertical)
     }
 
     // MARK: - Highlighted text helpers

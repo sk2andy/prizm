@@ -65,11 +65,18 @@ struct VerificationCodesListView: View {
                     ForEach(sections, id: \.letter) { section in
                         Section(header: Text(section.letter)) {
                             ForEach(section.items, id: \.id) { item in
-                                row(for: item).tag(item)
+                                row(for: item)
+                                    .tag(item)
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(ItemSelectionBackground(isSelected: selection?.id == item.id))
+                                    .foregroundStyle(selection?.id == item.id ? Color.white : Color.primary)
                             }
                         }
                     }
                 }
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
+                .background(Color("CardBackground"))
                 .accessibilityIdentifier(AccessibilityID.VerificationCodes.list)
             }
         }
@@ -82,22 +89,28 @@ struct VerificationCodesListView: View {
 
     @ViewBuilder
     private func row(for item: VaultItem) -> some View {
-        HStack(spacing: 10) {
-            FaviconView(domain: primaryDomain(for: item), itemType: .login, loader: faviconLoader, size: 26)
+        HStack(spacing: Spacing.rowHorizontal) {
+            FaviconView(domain: primaryDomain(for: item), itemType: .login, loader: faviconLoader,
+                        size: Spacing.itemIconSize)
+                .padding(Spacing.itemIconPadding)
+                .background(.background, in: RoundedRectangle(cornerRadius: Spacing.itemIconCornerRadius))
             if let state = codes.states[item.id] {
                 TOTPCodeRowView(itemId: item.id, name: item.name, state: state, showsName: true,
-                                subtitle: username(for: item), showsCountdown: false, onCopy: onCopy)
+                                subtitle: username(for: item), showsCountdown: false, isSelected: selection?.id == item.id, onCopy: onCopy)
             } else {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name).font(.headline).lineLimit(1)
+                VStack(alignment: .leading, spacing: Spacing.labelGap) {
+                    Text(item.name).font(Typography.listTitle.weight(.medium)).lineLimit(1)
                     if let username = username(for: item), !username.isEmpty {
-                        Text(username).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                        Text(username)
+                            .font(Typography.listSubtitle)
+                            .foregroundStyle(selection?.id == item.id ? Color.white.opacity(0.9) : Color.secondary)
+                            .lineLimit(1)
                     }
                 }
                 Spacer()
             }
         }
-        .padding(.vertical, 8) // same as the regular item list rows
+        .padding(.vertical, Spacing.itemRowVertical)
     }
 
     private func username(for item: VaultItem) -> String? {

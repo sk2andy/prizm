@@ -45,6 +45,8 @@ nonisolated enum ItemType: String, Equatable, Hashable, CaseIterable, Identifiab
 /// the conformance itself is nonisolated, not just the individual methods.
 nonisolated enum SidebarSelection {
     case allItems
+    /// Non-trashed items owned by the user rather than an organization.
+    case personal
     case favorites
     case type(ItemType)
     case folder(String)
@@ -66,6 +68,7 @@ extension SidebarSelection {
     var displayName: String {
         switch self {
         case .allItems:                      return "All Items"
+        case .personal:                      return "Personal"
         case .favorites:                     return "Favorites"
         case .type(let type):                return type.displayName
         case .folder:                        return "Folder"
@@ -83,6 +86,7 @@ nonisolated extension SidebarSelection: Hashable {
     static func == (lhs: SidebarSelection, rhs: SidebarSelection) -> Bool {
         switch (lhs, rhs) {
         case (.allItems, .allItems):                                     return true
+        case (.personal, .personal):                                     return true
         case (.favorites, .favorites):                                   return true
         case (.type(let a), .type(let b)):                               return a == b
         case (.folder(let a), .folder(let b)):                           return a == b
@@ -99,6 +103,7 @@ nonisolated extension SidebarSelection: Hashable {
     func hash(into hasher: inout Hasher) {
         switch self {
         case .allItems:                          hasher.combine(0)
+        case .personal:                          hasher.combine(10)
         case .favorites:                         hasher.combine(1)
         case .type(let type):                    hasher.combine(2); hasher.combine(type)
         case .folder(let id):                    hasher.combine(3); hasher.combine(id)

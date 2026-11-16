@@ -1,8 +1,7 @@
 # Accessibility Conformance Statement
 
-**Product**: Prizm (macOS)
-**Version**: 1.3.0
-**Date**: 2026-04-10
+**Product**: Luma (macOS), a fork of Prizm
+**Inherited assessment**: Prizm 1.3.0, dated 2026-04-10
 **Standard**: EN 301 549 v3.2.1 / WCAG 2.1 Level AA
 **Format**: Based on VPAT 2.4 Rev (Voluntary Product Accessibility Template)
 
@@ -10,7 +9,7 @@
 
 ## Summary
 
-Prizm is a native macOS SwiftUI application. It inherits platform accessibility features (VoiceOver, keyboard navigation, focus rings, Dynamic Type) from SwiftUI and AppKit. This document reports conformance against WCAG 2.1 Level A and Level AA success criteria as mapped to native software by EN 301 549 Chapter 11.
+Luma uses native SwiftUI and AppKit controls. The tables below retain the upstream Prizm assessment except where marked as requiring evaluation. Luma's redesigned sidebar, split panes, and inline search have not yet received a VoiceOver audit. Treat inherited support ratings and test results as the upstream baseline pending verification of the new layout.
 
 ---
 
@@ -33,9 +32,9 @@ Prizm is a native macOS SwiftUI application. It inherits platform accessibility 
 | 2.2.1 Timing Adjustable | Supports | No time limits on user actions. Auto-lock is a security feature, not a content timeout. Verification codes expire by design (see 2.2.2). |
 | 2.2.2 Pause, Stop, Hide | Partially Supports | Verification codes and their countdown update every second because one-time codes rotate; this is essential to their function and cannot be paused. Nothing else auto-updates. |
 | 2.3.1 Three Flashes or Below Threshold | Supports | No flashing content. All animations respect the macOS Reduce Motion preference. |
-| 2.4.1 Bypass Blocks | Supports | Three-pane NavigationSplitView allows direct navigation to sidebar, content, or detail. |
+| 2.4.1 Bypass Blocks | Not Evaluated for Luma | Luma uses native NSSplitView panes with a custom sidebar and native item lists. VoiceOver navigation between these panes remains to be audited. |
 | 2.4.2 Page Titled | Supports | Window title reflects the application name. |
-| 2.4.3 Focus Order | Supports | Focus order follows the logical reading order of the three-pane layout. |
+| 2.4.3 Focus Order | Not Evaluated for Luma | Focus order across the redesigned sidebar, list, and detail panes remains to be audited. |
 | 2.4.4 Link Purpose (In Context) | Supports | The "Open in browser" link includes the field label for context. |
 | 2.5.1 Pointer Gestures | Supports | No multi-point or path-based gestures required. |
 | 2.5.2 Pointer Cancellation | Supports | Standard macOS button behaviour (activation on mouse-up). |
@@ -64,7 +63,7 @@ Prizm is a native macOS SwiftUI application. It inherits platform accessibility 
 | 1.4.13 Content on Hover or Focus | Supports | Hover-revealed actions (copy, open, save) do not obscure other content and are dismissible. |
 | 2.4.5 Multiple Ways | Supports | Items accessible via sidebar navigation, search (⌘F), and keyboard shortcuts. |
 | 2.4.6 Headings and Labels | Supports | Section headers have `.isHeader` trait. All form fields have descriptive labels. |
-| 2.4.7 Focus Visible | Supports | macOS provides default focus rings on all focusable controls. |
+| 2.4.7 Focus Visible | Not Evaluated for Luma | Native controls provide focus feedback; inline search uses a custom focus border. Visibility across the redesigned layout remains to be audited. |
 | 3.2.3 Consistent Navigation | Supports | Sidebar navigation is consistent across all views. |
 | 3.2.4 Consistent Identification | Supports | Same actions use same labels throughout (e.g. "Copy", "Reveal", "Delete"). |
 | 3.3.3 Error Suggestion | Supports | Error messages include corrective suggestions where an actionable fix is known (e.g. "Check your network connection", "Make sure to include https://"). |
@@ -83,7 +82,8 @@ Prizm is a native macOS SwiftUI application. It inherits platform accessibility 
 
 ## Testing
 
-Accessibility was tested with:
+The inherited Prizm statement reports testing with:
+
 - VoiceOver on macOS 26
 - Keyboard-only navigation
 - Xcode Accessibility Inspector
@@ -92,4 +92,4 @@ Accessibility was tested with:
 
 ## Contact
 
-To report an accessibility issue, [open an issue](https://github.com/b0x42/prizm/issues) with the "accessibility" label.
+To report a Luma accessibility issue, [open an issue](https://github.com/sk2andy/prizm/issues) with the "accessibility" label.

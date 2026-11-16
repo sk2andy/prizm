@@ -5,7 +5,7 @@ import XCTest
 final class SidebarSelectionTests: XCTestCase {
 
     private let others: [SidebarSelection] = [
-        .allItems, .favorites, .type(.login), .folder("f"), .trash, .newFolder,
+        .allItems, .personal, .favorites, .type(.login), .folder("f"), .trash, .newFolder,
         .organization("o"), .collection("c"), .newCollection(organizationId: "o"),
     ]
 
@@ -23,5 +23,16 @@ final class SidebarSelectionTests: XCTestCase {
 
     func test_verificationCodes_displayName() {
         XCTAssertEqual(SidebarSelection.verificationCodes.displayName, "Codes")
+    }
+
+    func test_personal_isDistinctFromAllItemsAndOrganizations() {
+        XCTAssertEqual(SidebarSelection.personal, .personal)
+        XCTAssertNotEqual(SidebarSelection.personal, .allItems)
+        XCTAssertNotEqual(SidebarSelection.personal, .organization("o"))
+        XCTAssertEqual(SidebarSelection.personal.displayName, "Personal")
+
+        let counts: [SidebarSelection: Int] = [.allItems: 3, .personal: 1, .organization("o"): 2]
+        XCTAssertEqual(counts[.personal], 1)
+        XCTAssertEqual(counts.count, 3)
     }
 }

@@ -28,6 +28,7 @@ struct TOTPCodeRowView: View {
     /// The countdown ring and seconds. Shown in the detail card, hidden in the list where only
     /// the name and code matter.
     var showsCountdown: Bool = true
+    var isSelected: Bool = false
     let onCopy: (String) -> Void
 
     @State private var isHovered = false
@@ -54,7 +55,7 @@ struct TOTPCodeRowView: View {
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
                             .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color.secondary)
                             .lineLimit(1)
                     }
                 }
@@ -69,7 +70,7 @@ struct TOTPCodeRowView: View {
                 if label == nil && !showsName { Spacer(minLength: 0) }
                 Text("Code unavailable")
                     .font(Typography.fieldValue)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.9) : Color.secondary)
                     .accessibilityLabel("Verification code for \(name): unavailable")
                     .accessibilityIdentifier(AccessibilityID.VerificationCodes.code(itemId))
             }
@@ -92,7 +93,8 @@ struct TOTPCodeRowView: View {
                 // The list has no countdown ring, so the code itself warns in the last seconds:
                 // orange and semibold (not color alone), matching the detail view's ring.
                 .fontWeight(!showsCountdown && code.isExpiringSoon ? .semibold : nil)
-                .foregroundStyle(!showsCountdown && code.isExpiringSoon ? Color.orange : Color.primary)
+                .foregroundStyle(!showsCountdown && code.isExpiringSoon
+                    ? Color.orange : (isSelected ? Color.white : Color.primary))
                 .textSelection(.enabled)
             if showsCountdown { countdown(code) }
         }

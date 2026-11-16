@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - AboutView
 
-/// Custom About window for Prizm (replaces the default `NSApp.orderFrontStandardAboutPanel`).
+/// Custom About window for Luma (replaces the default `NSApp.orderFrontStandardAboutPanel`).
 ///
 /// Surfaces app version, tagline, GitHub link, "Built with" summary, and
 /// acknowledgements — letting users verify the full dependency chain without

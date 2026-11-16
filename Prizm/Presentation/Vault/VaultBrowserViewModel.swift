@@ -22,15 +22,20 @@ final class VaultBrowserViewModel: ObservableObject {
         didSet {
             if oldValue != sidebarSelection {
                 if isGlobalSearch { deactivateGlobalSearch(restoreSelection: false) }
+                itemSelection = nil
+                recordNavigation()
                 Task { @MainActor [weak self] in
-                    self?.itemSelection = nil
                     self?.refreshItems()
                 }
             }
         }
     }
 
-    @Published var itemSelection: VaultItem?
+    @Published var itemSelection: VaultItem? {
+        didSet {
+            if itemSelection != nil, oldValue?.id != itemSelection?.id { recordNavigation() }
+        }
+    }
     @Published var searchQuery:   String = "" {
         didSet { Task { @MainActor in refreshItems() } }
     }
@@ -41,7 +46,66 @@ final class VaultBrowserViewModel: ObservableObject {
     /// The sidebar selection that was active before global search was activated.
     private(set) var previousSelection: SidebarSelection?
 
+    private struct Location: Equatable {
+        var sidebar: SidebarSelection = .allItems
+        var itemID: String?
+        var query: String?
+    }
+
+    @Published private var history = [Location()]
+    @Published private var historyIndex = 0
+    private var restoringNavigation = false
+
+    var canGoBack: Bool { historyIndex > 0 }
+    var canGoForward: Bool { historyIndex + 1 < history.count }
+
+    private func recordNavigation() {
+        guard !restoringNavigation else { return }
+        let location = Location(sidebar: sidebarSelection, itemID: itemSelection?.id,
+                                query: isGlobalSearch ? searchQuery : nil)
+        guard location != history[historyIndex] else { return }
+        history.removeSubrange((historyIndex + 1)...)
+        history.append(location)
+        historyIndex = history.count - 1
+    }
+
+    func goBack() async { await navigateHistory(to: historyIndex - 1) }
+    func goForward() async { await navigateHistory(to: historyIndex + 1) }
+
+    private func navigateHistory(to index: Int) async {
+        guard history.indices.contains(index) else { return }
+        historyIndex = index
+        let location = history[index]
+        let item: VaultItem?
+        if let id = location.itemID {
+            item = try? await vault.itemDetail(id: id)
+        } else {
+            item = nil
+        }
+        guard history.indices.contains(index), historyIndex == index, history[index] == location else { return }
+        restoringNavigation = true
+        deactivateGlobalSearch(restoreSelection: false)
+        sidebarSelection = location.sidebar
+        if let query = location.query {
+            activateGlobalSearch()
+            searchQuery = query
+        }
+        itemSelection = item
+        restoringNavigation = false
+    }
+
+    func resetNavigationHistory() {
+        restoringNavigation = true
+        deactivateGlobalSearch(restoreSelection: false)
+        sidebarSelection = .allItems
+        itemSelection = nil
+        history = [Location()]
+        historyIndex = 0
+        restoringNavigation = false
+    }
+
     @Published private(set) var displayedItems: [VaultItem] = []
+    @Published private(set) var favoriteItems: [VaultItem] = []
     @Published private(set) var itemCounts: [SidebarSelection: Int] = [:]
     @Published private(set) var folders: [Folder] = []
     @Published private(set) var organizations: [Organization] = []
@@ -74,7 +138,7 @@ final class VaultBrowserViewModel: ObservableObject {
     /// Automatically cleared if the user switches to Trash.
     @Published var createItemType: ItemType? = nil {
         didSet {
-            if sidebarSelection == .trash { createItemType = nil }
+            if sidebarSelection == .trash && !isGlobalSearch { createItemType = nil }
         }
     }
 
@@ -103,6 +167,7 @@ final class VaultBrowserViewModel: ObservableObject {
     /// An integer counter (rather than a Combine PassthroughSubject) keeps the relay
     /// within the async/await pattern mandated by CLAUDE.md.
     @Published private(set) var editTrigger: Int = 0
+    @Published private(set) var searchTrigger: Int = 0
 
     /// Incremented each time the "Item > Save" menu bar action fires (spec §9.4).
     /// `ItemDetailView` uses `.onChange(of: saveTrigger)` to call `save()`.
@@ -110,6 +175,10 @@ final class VaultBrowserViewModel: ObservableObject {
 
     func triggerEdit() { editTrigger += 1 }
     func triggerSave() { saveTrigger += 1 }
+    func triggerSearch() {
+        activateGlobalSearch()
+        searchTrigger += 1
+    }
 
     // MARK: - Sync label refresh timer
 
@@ -198,6 +267,16 @@ final class VaultBrowserViewModel: ObservableObject {
         refreshItems()
     }
 
+    func selectFavorite(_ item: VaultItem) {
+        restoringNavigation = true
+        deactivateGlobalSearch(restoreSelection: false)
+        sidebarSelection = .allItems
+        searchQuery = ""
+        itemSelection = item
+        restoringNavigation = false
+        recordNavigation()
+    }
+
     /// Deactivates global search mode: restores the previous sidebar selection and clears the query.
     /// - Parameter restoreSelection: When `true` (default), restores the sidebar selection
     ///   that was active before global search. Pass `false` when the caller already set a new selection.
@@ -262,13 +341,7 @@ final class VaultBrowserViewModel: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             do {
-                let scope: SidebarSelection
-                if isGlobalSearch {
-                    if case .folder = sidebarSelection { scope = sidebarSelection }
-                    else { scope = .allItems }
-                } else {
-                    scope = sidebarSelection
-                }
+                let scope: SidebarSelection = isGlobalSearch ? .allItems : sidebarSelection
                 displayedItems = try await search.execute(query: searchQuery, in: scope)
             } catch {
                 logger.error("Failed to load vault items: \(error.localizedDescription, privacy: .public)")
@@ -297,6 +370,9 @@ final class VaultBrowserViewModel: ObservableObject {
             guard let self else { return }
             do {
                 itemCounts = try await vault.itemCounts()
+                favoriteItems = try await vault.allItems()
+                    .filter { $0.isFavorite && !$0.isDeleted }
+                    .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             } catch {
                 logger.error("Failed to load item counts: \(error.localizedDescription, privacy: .public)")
             }

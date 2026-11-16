@@ -33,7 +33,8 @@ final class VaultRepositoryImplTests: XCTestCase {
         id: String = UUID().uuidString,
         name: String,
         isFavorite: Bool = false,
-        isDeleted: Bool = false
+        isDeleted: Bool = false,
+        organizationId: String? = nil
     ) -> VaultItem {
         VaultItem(
             id: id,
@@ -45,7 +46,8 @@ final class VaultRepositoryImplTests: XCTestCase {
             content: .login(LoginContent(
                 username: nil, password: nil, uris: [], totp: nil,
                 notes: nil, customFields: []
-            ))
+            )),
+            organizationId: organizationId
         )
     }
 
@@ -131,6 +133,32 @@ final class VaultRepositoryImplTests: XCTestCase {
         XCTAssertEqual(result[0].id, fav.id)
     }
 
+    func testPersonalVault_itemsCountsAndSearchExcludeOrganizationsAndTrash() async throws {
+        let login = makeLogin(id: "login", name: "zebra vault")
+        let card = makeCard(id: "card", name: "Apple vault")
+        let organization = makeLogin(id: "org", name: "Organization vault", organizationId: "team")
+        let deleted = makeLogin(id: "deleted", name: "Deleted vault", isDeleted: true)
+        await sut.populate(items: [login, organization, deleted, card], folders: [],
+                           organizations: [], collections: [], syncedAt: Date())
+
+        let items = try await sut.items(for: .personal)
+        XCTAssertEqual(items.map(\.id), [card.id, login.id])
+        let counts = try await sut.itemCounts()
+        XCTAssertEqual(counts[.personal], 2)
+        XCTAssertEqual(counts[.allItems], 3)
+
+        let matches = try await sut.searchItems(query: "VAULT", in: .personal)
+        XCTAssertEqual(matches.map(\.id), [card.id, login.id])
+        let filtered = try await sut.searchItems(query: "zebra", in: .personal)
+        XCTAssertEqual(filtered.map(\.id), [login.id])
+
+        await sut.clearVault()
+        let cleared = try await sut.items(for: .personal)
+        XCTAssertTrue(cleared.isEmpty)
+        let clearedCounts = try await sut.itemCounts()
+        XCTAssertNil(clearedCounts[.personal])
+    }
+
     func testItemsForTypeLogin_onlyLoginItems() async throws {
         let login = makeLogin(name: "Login Item")
         let card  = makeCard(name: "Card Item")
@@ -166,6 +194,7 @@ final class VaultRepositoryImplTests: XCTestCase {
     func testItemCounts_empty_allZero() async throws {
         let counts = try await sut.itemCounts()
         XCTAssertEqual(counts[.allItems], 0)
+        XCTAssertEqual(counts[.personal], 0)
         XCTAssertEqual(counts[.favorites], 0)
         XCTAssertEqual(counts[.type(.login)], 0)
     }

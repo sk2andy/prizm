@@ -27,8 +27,11 @@ struct TrashView: View {
                 emptyState
             } else {
                 List(items, id: \.id, selection: $selection) { item in
-                    ItemRowView(item: item, faviconLoader: faviconLoader)
+                    ItemRowView(item: item, faviconLoader: faviconLoader, isSelected: selection?.id == item.id)
                         .tag(item)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(ItemSelectionBackground(isSelected: selection?.id == item.id))
+                        .foregroundStyle(selection?.id == item.id ? Color.white : Color.primary)
                         .accessibilityIdentifier(AccessibilityID.ItemList.row(item.id))
                         .contextMenu {
                             Button("Restore") {
@@ -42,6 +45,9 @@ struct TrashView: View {
                             .accessibilityIdentifier(AccessibilityID.Trash.permanentDeleteButton)
                         }
                 }
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
+                .background(Color("CardBackground"))
             }
         }
         // Confirmation alert: single permanent delete.

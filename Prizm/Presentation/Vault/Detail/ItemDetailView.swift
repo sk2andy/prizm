@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - ItemDetailView
 
 /// Detail pane: type-specific content, metadata footer, edit sheet.
-struct ItemDetailView: View {
+struct ItemDetailView<HeaderActions: View>: View {
 
     let item:              VaultItem?
     let faviconLoader:     FaviconLoader
@@ -31,6 +31,7 @@ struct ItemDetailView: View {
     var makeCodesViewModel: (() -> TOTPCodesViewModel)? = nil
     var editTrigger: Int = 0
     var saveTrigger: Int = 0
+    @ViewBuilder var headerActions: () -> HeaderActions
 
     @State private var isEditSheetPresented = false
     @State private var editViewModel: ItemEditViewModel?
@@ -57,7 +58,7 @@ struct ItemDetailView: View {
                     organizationRow(for: item)
                     folderRow(for: item)
 
-                    Spacer(minLength: 20)
+                    Spacer(minLength: Spacing.pageMargin)
                     metadataFooter(for: item)
                 }
             }
@@ -96,19 +97,33 @@ struct ItemDetailView: View {
 
     @ViewBuilder
     private func itemHeader(for item: VaultItem) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            FaviconView(
-                domain:   primaryDomain(for: item),
-                itemType: itemType(for: item),
-                loader:   faviconLoader,
-                size:     36
-            )
-            Text(item.name.isEmpty ? " " : item.name)
-                .font(Typography.pageTitle)
-                .accessibilityIdentifier(AccessibilityID.Detail.itemName)
+        VStack(alignment: .leading, spacing: Spacing.headerGap) {
+            if item.isDeleted {
+                headerActions().frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            HStack(alignment: .top, spacing: Spacing.detailHeaderGap) {
+                FaviconView(
+                    domain:   primaryDomain(for: item),
+                    itemType: itemType(for: item),
+                    loader:   faviconLoader,
+                    size:     Spacing.detailIconSize
+                )
+                .padding(Spacing.detailIconPadding)
+                .background(Color("CardBackground"), in: RoundedRectangle(cornerRadius: Spacing.contentCornerRadius))
+
+                VStack(alignment: .leading, spacing: Spacing.labelGap) {
+                    Text(item.name.isEmpty ? " " : item.name)
+                        .font(Typography.pageTitle)
+                        .accessibilityIdentifier(AccessibilityID.Detail.itemName)
+                    Text(itemType(for: item).displayName)
+                        .font(Typography.bannerText)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if !item.isDeleted { headerActions().fixedSize() }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, Spacing.pageTop)
         .padding(.horizontal, Spacing.pageMargin)
         .padding(.bottom, Spacing.pageHeaderBottom)
     }
@@ -134,19 +149,11 @@ struct ItemDetailView: View {
     }
 
     private func metadataFooter(for item: VaultItem) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 0) {
-                Text("Updated:")
-                    .frame(width: 70, alignment: .leading)
-                Text(item.revisionDate.formatted(.dateTime.day(.twoDigits).month(.twoDigits).year()))
-            }
-            HStack(spacing: 0) {
-                Text("Created:")
-                    .frame(width: 70, alignment: .leading)
-                Text(item.creationDate.formatted(.dateTime.day(.twoDigits).month(.twoDigits).year()))
-            }
+        VStack(alignment: .leading, spacing: Spacing.labelGap) {
+            Text("Updated: \(item.revisionDate.formatted(.dateTime.day(.twoDigits).month(.twoDigits).year()))")
+            Text("Created: \(item.creationDate.formatted(.dateTime.day(.twoDigits).month(.twoDigits).year()))")
         }
-        .font(Typography.fieldValue)
+        .font(Typography.utility)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.pageMargin)

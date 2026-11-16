@@ -1,33 +1,42 @@
 import SwiftUI
 
+struct ItemSelectionBackground: View {
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack {
+            // Cover the native blue selection beneath the inset rounded surface.
+            Color("CardBackground")
+            RoundedRectangle(cornerRadius: Spacing.itemIconCornerRadius)
+                .fill(isSelected ? Palette.listSelection : .clear)
+                .padding(.horizontal, Spacing.headerGap)
+                .padding(.vertical, 2)
+        }
+    }
+}
+
 // MARK: - CardBackground
 
 /// A `ViewModifier` that renders any view inside a card-style container:
-/// rounded corners, a named background color that adapts for light/dark mode,
-/// and a soft drop shadow.
+/// rounded corners, a light/dark background, and a contrast-aware outline.
 ///
 /// Adapted from: https://danijelavrzan.com/posts/2023/02/card-view-swiftui/
-///
-/// The background uses the `CardBackground` named color asset (white in light mode,
-/// dark gray #212121 in dark mode). A black shadow on a dark background is invisible,
-/// so shifting the card background ensures the shadow remains effective in both
-/// appearances without requiring `@Environment(\.colorScheme)` logic here.
 struct CardBackground: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
         content
             .background(Color("CardBackground"))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: Spacing.contentCornerRadius))
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: Spacing.contentCornerRadius)
                     .stroke(Color.primary.opacity(Opacity.cardBorder(contrast)), lineWidth: 0.5)
             )
     }
 }
 
 extension View {
-    /// Applies the card background modifier: rounded corners, adaptive background, and shadow.
+    /// Applies rounded corners, an adaptive background, and a contrast-aware outline.
     func cardBackground() -> some View {
         modifier(CardBackground())
     }
@@ -60,11 +69,11 @@ struct DetailSectionCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Spacing.headerGap) {
             if Self.hasHeader(title) {
                 Text(title!)
-                    .font(.headline)
-                    .padding(.leading, 4)
+                    .font(Typography.fieldLabelProminent)
+                    .foregroundStyle(.secondary)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier(
                         AccessibilityID.Detail.cardHeader(title!)
