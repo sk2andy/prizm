@@ -493,10 +493,11 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
         controller.splitView.dividerStyle = .thin
         let sidebarItem = splitItem(sidebar(), minimum: Spacing.sidebarMinimumWidth)
         sidebarItem.canCollapse = true
-        sidebarItem.holdingPriority = .defaultHigh
+        // Preserve these widths on window resize, but yield to divider drags (priority 490).
+        sidebarItem.holdingPriority = NSLayoutConstraint.Priority(rawValue: 260)
         controller.addSplitViewItem(sidebarItem)
         let listItem = splitItem(content(), minimum: listMinimum)
-        listItem.holdingPriority = .defaultHigh
+        listItem.holdingPriority = NSLayoutConstraint.Priority(rawValue: 260)
         controller.addSplitViewItem(listItem)
         controller.addSplitViewItem(splitItem(detail(), minimum: Spacing.detailMinimumWidth))
         sidebarItem.isCollapsed = !isSidebarVisible

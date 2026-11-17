@@ -77,3 +77,15 @@ of running the complete suite. Existing README images are from the previous pass
 | Full unit/UI suites | Not run, per request |
 
 Personal Team profiles expire after seven days; renew through Xcode automatic signing.
+
+### Divider dragging correction — 2026-11-17
+
+- Lower sidebar/list holding priorities from 750 to 260, below native drag priority 490. Detail remains at 250 so window resizing expands it first.
+- Add UI regression coverage that requires both dividers to actually move.
+
+| Focused verification | Result |
+|---|---|
+| Native hidden-window hit test and queued mouse drag, before fix | Failed: first divider stayed at 300 points |
+| Same native drag after fix | Passed: both columns moved from 300 to 350 points |
+| Apple-signed Release build | Passed |
+| Full UI suite / new XCUITest | Not run, per request |

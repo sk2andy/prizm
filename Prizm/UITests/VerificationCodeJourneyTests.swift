@@ -107,6 +107,24 @@ final class VerificationCodeJourneyTests: XCTestCase {
         XCTAssertTrue(element("itemList.row.alpha").waitForExistence(timeout: 5))
     }
 
+    func testBothColumnDividers_followMouseDrags() {
+        let window = app.windows.firstMatch
+        let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1))
+            .withOffset(CGVector(dx: -2, dy: -2))
+        corner.press(forDuration: 0.1, thenDragTo:
+            corner.withOffset(CGVector(dx: 1400 - window.frame.width, dy: 0)))
+
+        for index in 0..<2 {
+            let divider = app.splitters.element(boundBy: index)
+            XCTAssertTrue(divider.exists)
+            let originalX = divider.frame.midX
+            let start = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 50, dy: 0)))
+            XCTAssertGreaterThan(divider.frame.midX, originalX + 30,
+                                 "Divider \(index) must move when dragged, not merely keep minimum widths")
+        }
+    }
+
     func testSearchField_staysAboveListAndDetailHasMinimumWidth() {
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
