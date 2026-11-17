@@ -187,24 +187,6 @@ struct VaultBrowserView: View {
 
     private var sidebarFooter: some View {
         VStack(spacing: Spacing.rowHorizontal) {
-            HStack(spacing: Spacing.labelGap) {
-                scopeButton("Personal", symbol: "house", selection: .personal)
-                if viewModel.organizations.count == 1, let organization = viewModel.organizations.first {
-                    scopeButton(organization.name, symbol: "briefcase", selection: .organization(organization.id))
-                } else if !viewModel.organizations.isEmpty {
-                    Menu {
-                        ForEach(viewModel.organizations) { organization in
-                            Button(organization.name) {
-                                viewModel.deactivateGlobalSearch(restoreSelection: false)
-                                viewModel.sidebarSelection = .organization(organization.id)
-                            }
-                        }
-                    } label: { Label("Organizations", systemImage: "briefcase") }
-                    .menuStyle(.borderlessButton)
-                }
-            }
-            .padding(Spacing.labelGap)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: Spacing.contentCornerRadius))
             Divider()
             HStack(spacing: Spacing.headerGap) {
                 Text(String(accountLabel.prefix(2)).uppercased())
@@ -231,26 +213,6 @@ struct VaultBrowserView: View {
         }
         .padding(.horizontal, Spacing.rowHorizontal)
         .padding(.vertical, Spacing.sidebarStatusBottom)
-    }
-
-    private func scopeButton(_ title: String, symbol: String, selection: SidebarSelection) -> some View {
-        Button {
-            viewModel.deactivateGlobalSearch(restoreSelection: false)
-            viewModel.sidebarSelection = selection
-        } label: {
-            Label(title, systemImage: symbol)
-                .font(Typography.listSubtitle)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.rowVertical)
-                .background(viewModel.sidebarSelection == selection && !viewModel.isGlobalSearch
-                            ? Color.primary.opacity(0.1) : Color.clear,
-                            in: RoundedRectangle(cornerRadius: Spacing.headerGap))
-        }
-        .buttonStyle(.plain)
-        .help(title)
-        .accessibilityValue(viewModel.sidebarSelection == selection && !viewModel.isGlobalSearch
-                            ? "Selected" : "Not selected")
     }
 
     private var listHeader: some View {

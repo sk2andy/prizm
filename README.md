@@ -19,7 +19,7 @@ Native macOS client for Vaultwarden and self-hosted Bitwarden, built in Swift.
 
 Luma is [André's fork, `sk2andy/prizm`](https://github.com/sk2andy/prizm), derived from [Prizm by Benjamin (`b0x42`)](https://github.com/b0x42/prizm). The original app, vault integration, and security architecture come from that project. Benjamin's copyright and the [MIT license with Commons Clause](LICENSE) are retained.
 
-The `feat/arc-redesign` branch explores an Arc-inspired macOS interface: a tinted sidebar with favorite tiles, collapsible groups, personal and organization selectors, and a profile footer. Search sits above the item list and covers the full vault across folders and organizations; selecting a sidebar category returns to browsing that category. Each column has its own minimum width, and the window minimum adjusts when the sidebar is hidden. Existing folders, organizations, collections, and item actions remain available.
+The `feat/arc-redesign` branch explores an Arc-inspired macOS interface: a tinted sidebar with favorite tiles, collapsible groups, organization navigation, and a profile footer. Search sits above the item list and covers the full vault across folders and organizations; selecting a sidebar category returns to browsing that category. Each column has its own minimum width, and the window minimum adjusts when the sidebar is hidden. Existing folders, organizations, collections, and item actions remain available.
 
 The macOS 15 compatibility contribution is tracked separately in [upstream PR #88](https://github.com/b0x42/prizm/pull/88). This interface redesign belongs to this fork and is not part of that PR. Arc provides visual inspiration only; this fork is not affiliated with Arc or Bitwarden.
 
