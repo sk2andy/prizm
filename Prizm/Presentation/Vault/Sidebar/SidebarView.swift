@@ -16,7 +16,7 @@ struct SidebarView: View {
     var organizations: [Organization] = []
     var collections: [OrgCollection] = []
     var favoriteItems: [VaultItem] = []
-    var faviconLoader: FaviconLoader? = nil
+    let faviconLoader: FaviconLoader
     var onSelectFavorite: ((VaultItem) -> Void)? = nil
 
     @Environment(\.colorSchemeContrast) private var contrast
@@ -130,7 +130,7 @@ struct SidebarView: View {
                                 .frame(width: 20, height: 20)
                             Text(item.name)
                                 .font(Typography.listSubtitle)
-                                .lineLimit(2, reservesSpace: true)
+                                .lineLimit(2)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
                         }
@@ -150,21 +150,19 @@ struct SidebarView: View {
         .padding(.vertical, Spacing.headerGap)
     }
 
-    @ViewBuilder
     private func favoriteIcon(for item: VaultItem) -> some View {
-        if case .login(let login) = item.content, let faviconLoader {
-            FaviconView(
-                domain: login.uris.first.flatMap { URL(string: $0.uri)?.host },
-                itemType: .login,
-                loader: faviconLoader,
-                size: 20
-            )
+        let domain: String?
+        if case .login(let login) = item.content {
+            domain = login.uris.first.flatMap { URL(string: $0.uri)?.host }
         } else {
-            Image(systemName: favoriteItemType(for: item).sfSymbol)
-                .font(Typography.sectionHeader)
-                .foregroundStyle(Color.accentColor)
-                .accessibilityHidden(true)
+            domain = nil
         }
+        return FaviconView(
+            domain: domain,
+            itemType: favoriteItemType(for: item),
+            loader: faviconLoader,
+            size: 20
+        )
     }
 
     private func favoriteItemType(for item: VaultItem) -> ItemType {
