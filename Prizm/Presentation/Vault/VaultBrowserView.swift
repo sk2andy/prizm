@@ -343,7 +343,7 @@ struct VaultBrowserView: View {
 
     private var browserPanes: some View {
         VaultSplitView(isSidebarVisible: isSidebarVisible, listMinimum: listMinimumWidth) {
-            sidebar
+            sidebar.padding(.top, Spacing.headerGap)
         } content: {
             VStack(spacing: 0) {
                 if !isSidebarVisible { windowNavigation }
@@ -352,19 +352,19 @@ struct VaultBrowserView: View {
                 itemListPane
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, Spacing.headerGap)
             .background(Color("CardBackground"))
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: Spacing.contentCornerRadius,
                                              bottomLeadingRadius: Spacing.contentCornerRadius))
         } detail: {
             itemDetail
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, Spacing.headerGap)
             .background(Color(nsColor: .windowBackgroundColor))
             .clipShape(UnevenRoundedRectangle(bottomTrailingRadius: Spacing.contentCornerRadius,
                                              topTrailingRadius: Spacing.contentCornerRadius))
         }
-        .padding(.horizontal, Spacing.headerGap)
-        .padding(.bottom, Spacing.headerGap)
-        .padding(.top, Spacing.headerGap * 2)
+        .padding(Spacing.headerGap)
         .background { sidebarBackground.ignoresSafeArea() }
         .frame(minWidth: minimumWindowWidth, maxWidth: .infinity, minHeight: 620, maxHeight: .infinity)
         .ignoresSafeArea(.container, edges: .top)

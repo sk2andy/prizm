@@ -40,7 +40,6 @@ struct PrizmApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultLaunchBehavior(.presented)
-        .restorationBehavior(.disabled)
         .defaultSize(width: 1100, height: 760)
         .windowResizability(.contentMinSize)
         .commands {

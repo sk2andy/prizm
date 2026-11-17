@@ -52,6 +52,14 @@ final class VerificationCodeJourneyTests: XCTestCase {
 
     // MARK: - US1: one item
 
+    func testRelaunch_presentsMainWindow() {
+        openItem("alpha")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(element("itemList.row.alpha").waitForExistence(timeout: 10))
+    }
+
     func testNewItemShortcut_opensEditorInCurrentWindow() {
         app.activate()
         app.typeKey("n", modifierFlags: .command)
