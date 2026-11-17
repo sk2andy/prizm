@@ -117,7 +117,7 @@ struct VaultBrowserView: View {
             Button { isSidebarVisible.toggle() } label: {
                 Image(systemName: "sidebar.left")
             }
-            .keyboardShortcut("s", modifiers: [.command, .control])
+            .keyboardShortcut("b", modifiers: .command)
             .help(isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
             .accessibilityLabel(isSidebarVisible ? "Hide Sidebar" : "Show Sidebar")
             .accessibilityIdentifier("vault.toggleSidebar")
@@ -141,7 +141,7 @@ struct VaultBrowserView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
-        .padding(.leading, 80) // Space for the native window controls.
+        .padding(.leading, 92) // Space for the native window controls.
         .padding(.trailing, Spacing.headerGap)
         .frame(height: 30)
         .offset(y: -9) // Align with the native window buttons, centered 22pt from the top.
@@ -182,7 +182,7 @@ struct VaultBrowserView: View {
             )
             sidebarFooter
         }
-        .frame(minWidth: Spacing.sidebarMinimumWidth, idealWidth: 250, maxWidth: 320)
+        .frame(minWidth: Spacing.sidebarMinimumWidth, maxWidth: .infinity)
     }
 
     private var sidebarFooter: some View {
@@ -492,7 +492,6 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
         controller.splitView.isVertical = true
         controller.splitView.dividerStyle = .thin
         let sidebarItem = splitItem(sidebar(), minimum: Spacing.sidebarMinimumWidth)
-        sidebarItem.maximumThickness = 320
         sidebarItem.canCollapse = true
         sidebarItem.holdingPriority = .defaultHigh
         controller.addSplitViewItem(sidebarItem)
@@ -520,7 +519,15 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
         (items[2].viewController as? NSHostingController<Detail>)?.rootView = detail()
         items[1].minimumThickness = listMinimum
         if items[0].isCollapsed == isSidebarVisible {
-            items[0].isCollapsed = !isSidebarVisible
+            if AccessibilityInfo.prefersReducedMotion {
+                items[0].isCollapsed = !isSidebarVisible
+            } else {
+                NSAnimationContext.runAnimationGroup { animation in
+                    animation.duration = 0.22
+                    animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    items[0].animator().isCollapsed = !isSidebarVisible
+                }
+            }
         }
     }
 
@@ -538,6 +545,12 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
 
     private final class VaultSplitViewController: NSSplitViewController {
         private var nativeTitlebarHeight: CGFloat?
+        private var nativeCloseButtonX: CGFloat?
+
+        override func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
+                                forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
+            proposedEffectiveRect.insetBy(dx: -4, dy: 0)
+        }
 
         override func viewDidLayout() {
             super.viewDidLayout()
@@ -550,7 +563,9 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
         }
 
         private func positionTitlebar(extraHeight: CGFloat) {
-            guard let titlebar = view.window?.standardWindowButton(.closeButton)?.superview?.superview,
+            guard let window = view.window,
+                  let closeButton = window.standardWindowButton(.closeButton),
+                  let titlebar = closeButton.superview?.superview,
                   let parent = titlebar.superview else { return }
             let nativeHeight = nativeTitlebarHeight ?? titlebar.frame.height
             nativeTitlebarHeight = nativeHeight
@@ -560,6 +575,14 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
             frame.size.height = nativeHeight + extraHeight
             frame.origin.y = parent.bounds.maxY - frame.height
             titlebar.frame = frame
+
+            let nativeX = nativeCloseButtonX ?? closeButton.frame.minX
+            nativeCloseButtonX = nativeX
+            let offset = (extraHeight > 0 ? Spacing.pageMargin : nativeX) - closeButton.frame.minX
+            for type: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+                guard let button = window.standardWindowButton(type) else { continue }
+                button.setFrameOrigin(NSPoint(x: button.frame.minX + offset, y: button.frame.minY))
+            }
         }
 
         nonisolated deinit {}

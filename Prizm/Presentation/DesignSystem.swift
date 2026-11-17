@@ -73,7 +73,7 @@ enum Typography {
 // Prefer these over inline CGFloat literals so that layout rhythm
 // stays consistent and tweaks propagate everywhere at once.
 enum Spacing {
-    static let sidebarMinimumWidth: CGFloat = 240
+    static let sidebarMinimumWidth: CGFloat = 300
     static let itemListMinimumWidth: CGFloat = 300
     static let codesListMinimumWidth: CGFloat = 380
     static let detailMinimumWidth: CGFloat = 400

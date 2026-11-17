@@ -227,6 +227,7 @@ struct SidebarView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     renderRows(for: section)
                 }
+                .disclosureGroupStyle(SidebarDisclosureStyle())
             }
         }
         .padding(Spacing.labelGap)
@@ -369,6 +370,7 @@ private struct FolderTreeRow: View {
             }
         } else {
             nodeLabel
+                .padding(.leading, Spacing.pageMargin)
         }
     }
 
@@ -614,6 +616,7 @@ private struct CollectionTreeRow: View {
             }
         } else {
             nodeLabel
+                .padding(.leading, Spacing.pageMargin)
         }
     }
 
@@ -661,6 +664,36 @@ private struct CollectionTreeRow: View {
             // Virtual parent node — not selectable, no context menu
             Label(node.name, systemImage: "tray.2")
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Keep tree disclosure arrows inside the card and match section-header chevrons.
+private struct SidebarDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.labelGap) {
+            HStack(spacing: 0) {
+                Button {
+                    optionalAnimation(.easeInOut(duration: 0.18)) {
+                        configuration.isExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(Typography.fieldLabelProminent)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(configuration.isExpanded ? "Collapse group" : "Expand group")
+                .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
+                .padding(.leading, Spacing.headerGap)
+                configuration.label
+            }
+            if configuration.isExpanded {
+                configuration.content
+                    .padding(.leading, Spacing.pageMargin)
+            }
         }
     }
 }

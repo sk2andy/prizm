@@ -125,7 +125,7 @@ The app is open source. Verify these claims by reading the code. See [SECURITY.m
 | ⌘F | Global search |
 | ⌘K | Focus vault search directly |
 | ⌘[ / ⌘] | Back / forward through visited categories and items |
-| ⌃⌘S | Show or hide sidebar |
+| ⌘B | Show or hide sidebar |
 | ⌘N | New item |
 | ⌘L | Lock vault |
 | ⌘E | Edit selected item |

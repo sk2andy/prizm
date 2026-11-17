@@ -46,3 +46,17 @@ The three UI failures remain untriaged; several interactions encountered the
 foreground Codex window. Do not treat this interrupted run as a passing suite.
 For subsequent small layout changes, use build and focused visual checks instead
 of running the complete suite. Existing README images are from the previous pass.
+
+### Sidebar polish — 2026-11-17
+
+- Widen sidebar minimum to 300 points, remove its 320-point cap, and enlarge both divider hit areas.
+- Add ⌘B and native sidebar collapse animation, respecting Reduce Motion.
+- Align tree chevrons inside section cards and match their secondary color.
+- Move native traffic lights to a 20-point left inset; restore native placement outside the vault.
+
+| Focused check | Result |
+|---|---|
+| Incremental Release build | Passed |
+| Hidden AppKit window: traffic-light inset/repeated layout/restoration, divider resizing, minimum widths, collapse/reopen | Passed |
+| Offscreen disclosure rendering: alignment and secondary color | Passed |
+| Full unit/UI suites | Not rerun, per request; no desktop UI automation |

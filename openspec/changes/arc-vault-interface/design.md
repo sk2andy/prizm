@@ -3,10 +3,12 @@
 Keep native SwiftUI lists and split-view resizing. Use one `NSSplitViewController`
 with three items: sidebar, result list, and detail. Round the result list's outer
 left corners and the detail's outer right corners to form one content surface.
-Enforce independent minimum widths: 240 points for the sidebar, 300 for results,
+Enforce independent minimum widths: 300 points for the sidebar, 300 for results,
 380 for verification codes, and 400 for details. The window minimum follows the
 visible columns. Hide and show the sidebar by collapsing its native split item,
-keeping the same controller and all three hosting controllers in place.
+keeping the same controller and all three hosting controllers in place. ⌘B toggles
+the sidebar with a short native animation, disabled for Reduce Motion. The sidebar
+has no fixed maximum width; invisible divider hit areas extend four points per side.
 Native divider hit targets stay available for dragging and accessibility; the
 split view skips drawing their strokes. Embedded hosting controllers ignore the title-bar
 safe area and do not derive native sizing constraints from their SwiftUI content.
