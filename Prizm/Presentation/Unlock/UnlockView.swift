@@ -70,12 +70,29 @@ struct UnlockView: View {
                 }
                 .frame(width: 200)
             default:
-                SecureField("Enter password", text: $viewModel.password)
+                SecureField(viewModel.usePIN ? "Enter PIN" : "Enter password", text: $viewModel.password)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 200)
                     .focused($passwordFocused)
                     .onSubmit { unlockIfReady() }
                     .accessibilityIdentifier(AccessibilityID.Unlock.passwordField)
+            }
+
+            if viewModel.pinUnlockAvailable {
+                Button(viewModel.usePIN ? "Use master password" : "Use PIN") {
+                    viewModel.usePIN.toggle()
+                    passwordFocused = true
+                }
+                .buttonStyle(.plain)
+                .padding(.top, Spacing.headerGap)
+                .disabled(viewModel.flowState == .loading)
+            } else if viewModel.pinUnlockEnabled {
+                Text("Enter your master password to enable PIN unlock for this app session.")
+                    .font(Typography.utility)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+                    .padding(.top, Spacing.headerGap)
             }
 
             // MARK: Error message
@@ -103,7 +120,10 @@ struct UnlockView: View {
             .accessibilityIdentifier(AccessibilityID.Unlock.switchAccount)
         }
         .frame(minWidth: 480, minHeight: 400)
-        .onAppear { passwordFocused = true }
+        .onAppear {
+            viewModel.usePIN = viewModel.pinUnlockAvailable
+            passwordFocused = true
+        }
         // .task(id:) re-fires whenever biometricContextVersion changes (re-arm).
         // By the time the task runs, SwiftUI has re-rendered EmbeddedTouchIDView
         // with the new LAContext — so evaluatePolicy routes inline, not to a modal.
@@ -134,6 +154,9 @@ struct UnlockView: View {
 
     /// Subtitle varies by whether biometric unlock is available.
     private var subtitleText: String {
+        if viewModel.usePIN {
+            return "Enter the PIN for \(viewModel.email) to unlock."
+        }
         if viewModel.biometricUnlockAvailable {
             return "\(biometricMethodName) or enter the password for \(viewModel.email) to unlock."
         } else {

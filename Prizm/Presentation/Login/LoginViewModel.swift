@@ -35,6 +35,9 @@ final class LoginViewModel: ObservableObject {
     private let loginUseCase: any LoginUseCase
     private let logger = Logger(subsystem: "com.prizm", category: "LoginViewModel")
 
+    private var pendingTasks: [UUID: Task<Void, Never>] = [:]
+    private var isCancelling = false
+
     // MARK: - Init
 
     init(loginUseCase: any LoginUseCase) {
@@ -48,6 +51,7 @@ final class LoginViewModel: ObservableObject {
 
     /// Validates credentials and initiates the login sequence.
     func signIn() {
+        guard !isCancelling else { return }
         logger.info("Sign-in flow started")
         errorMessage = nil
         flowState    = .loading
@@ -63,7 +67,7 @@ final class LoginViewModel: ObservableObject {
             return
         }
 
-        Task {
+        startTask { [self] in
             do {
                 let result = try await loginUseCase.execute(
                     serverURL:      serverURL,
@@ -71,6 +75,7 @@ final class LoginViewModel: ObservableObject {
                     masterPassword: passwordData
                 )
 
+                guard !Task.isCancelled else { return }
                 switch result {
                 case .success:
                     // Clear the password field so the plaintext does not linger in
@@ -90,10 +95,12 @@ final class LoginViewModel: ObservableObject {
                 }
 
             } catch let err as AuthError {
+                guard !Task.isCancelled else { return }
                 logger.error("Sign-in failed: \(err.localizedDescription, privacy: .public)")
                 errorMessage = err.errorDescription
                 flowState    = .login
             } catch {
+                guard !Task.isCancelled else { return }
                 logger.error("Sign-in failed: \(error.localizedDescription, privacy: .public)")
                 errorMessage = error.localizedDescription
                 flowState    = .login
@@ -109,23 +116,50 @@ final class LoginViewModel: ObservableObject {
 
     /// Completes a pending TOTP 2FA challenge.
     func submitTOTP(code: String, rememberDevice: Bool) {
+        guard !isCancelling else { return }
         logger.info("TOTP submission started")
         errorMessage = nil
         flowState    = .loading
 
-        Task {
+        startTask { [self] in
             do {
                 let _ = try await loginUseCase.completeTOTP(code: code, rememberDevice: rememberDevice)
+                guard !Task.isCancelled else { return }
                 flowState = .vault
             } catch let err as AuthError {
+                guard !Task.isCancelled else { return }
                 logger.error("TOTP submission failed: \(err.localizedDescription, privacy: .public)")
                 errorMessage = err.errorDescription
                 flowState    = .totpPrompt
             } catch {
+                guard !Task.isCancelled else { return }
                 logger.error("TOTP submission failed: \(error.localizedDescription, privacy: .public)")
                 errorMessage = error.localizedDescription
                 flowState    = .totpPrompt
             }
         }
     }
+    /// Drains login/TOTP and their initial sync before Root clears the vault on lock or sign-out.
+    func cancelAndWait() async {
+        isCancelling = true
+        let tasks = Array(pendingTasks.values)
+        tasks.forEach { $0.cancel() }
+        password = ""
+        errorMessage = nil
+        flowState = .login
+        for task in tasks { await task.value }
+        loginUseCase.cancelTOTP()
+        isCancelling = false
+    }
+
+    private func startTask(_ operation: @escaping @MainActor () async -> Void) {
+        guard !isCancelling else { return }
+        let id = UUID()
+        pendingTasks[id] = Task {
+            guard !Task.isCancelled else { pendingTasks[id] = nil; return }
+            await operation()
+            pendingTasks[id] = nil
+        }
+    }
+
 }

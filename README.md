@@ -1,25 +1,49 @@
-<div align="center">
+<p align="center">
+  <img src="assets/icon.png" width="120" alt="Luma app icon: a layered blue shield">
+</p>
 
-# Luma
+<h1 align="center">Luma</h1>
 
-[![Upstream CI](https://github.com/b0x42/prizm/actions/workflows/ci.yml/badge.svg)](https://github.com/b0x42/prizm/actions/workflows/ci.yml)
-[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange.svg)](https://swift.org/)
-[![macOS 15+](https://img.shields.io/badge/macOS-15%2B-blue.svg)](https://www.apple.com/macos/)
-[![MIT + Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-green.svg)](LICENSE)
+<p align="center">
+  <strong>Your vault, at home on your Mac.</strong><br>
+  A native SwiftUI client for Vaultwarden and self-hosted Bitwarden,
+  with an Arc-inspired three-column interface.
+</p>
 
-Native macOS client for Vaultwarden and self-hosted Bitwarden, built in Swift.
+<p align="center">
+  <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-blue.svg?logo=apple&logoColor=white">
+  <img alt="Swift 6.2" src="https://img.shields.io/badge/Swift-6.2-orange.svg?logo=swift&logoColor=white">
+  <img alt="UI: SwiftUI and AppKit" src="https://img.shields.io/badge/UI-SwiftUI%20%2B%20AppKit-007AFF">
+  <a href="LICENSE"><img alt="License: MIT + Commons Clause" src="https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-green.svg"></a>
+</p>
 
-*Your secrets. Your server. Our user interface.*
+<p align="center">
+  <a href="#screenshots">Screenshots</a>
+  · <a href="#install">Build &amp; install</a>
+  · <a href="#shortcuts">Keyboard shortcuts</a>
+  · <a href="https://github.com/sk2andy/prizm/issues">Feedback</a>
+</p>
 
-</div>
+<p align="center">
+  Based on <a href="https://github.com/b0x42/prizm"><strong>Prizm</strong></a>,
+  created by <a href="https://github.com/b0x42"><strong>Benjamin (b0x42)</strong></a>.<br>
+  Luma is an independent fork maintained by André (<a href="https://github.com/sk2andy">sk2andy</a>).
+</p>
 
----
+<p align="center">
+  <a href="https://buymeacoffee.com/sk2andy"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" alt="Buy me a coffee — support André's work on Luma"></a><br>
+  <sub>Optional support for André's work on this fork.</sub>
+</p>
+
+> [!NOTE]
+> **Luma is currently available as a source build.** The instructions below build this fork;
+> releases from the original Prizm repository belong to Benjamin's upstream app.
 
 ## About this fork
 
-Luma is [André's fork, `sk2andy/prizm`](https://github.com/sk2andy/prizm), derived from [Prizm by Benjamin (`b0x42`)](https://github.com/b0x42/prizm). The original app, vault integration, and security architecture come from that project. Benjamin's copyright and the [MIT license with Commons Clause](LICENSE) are retained.
+Luma builds on [Prizm by Benjamin (`b0x42`)](https://github.com/b0x42/prizm). **Benjamin is the original author**: the native app foundation, vault integration, and security architecture come from his project and its contributors. This fork gives that foundation a different interface and its own Luma identity. The original copyright and [MIT license with Commons Clause](LICENSE) are retained.
 
-The `feat/arc-redesign` branch explores an Arc-inspired macOS interface: a tinted sidebar with favorite tiles, collapsible groups, organization navigation, and a profile footer. Search sits above the item list and covers the full vault across folders and organizations; selecting a sidebar category returns to browsing that category. Each column has its own minimum width, and the window minimum adjusts when the sidebar is hidden. Existing folders, organizations, collections, and item actions remain available.
+The `feat/arc-redesign` branch explores an Arc-inspired macOS interface: a tinted sidebar with favorite tiles, collapsible groups, organization navigation, and a profile footer. Search sits above the item list and covers the full vault across folders and organizations; selecting a sidebar category returns to browsing that category. Drag the dividers to resize the columns. Each column has its own minimum width, and the window minimum adjusts when the sidebar is hidden. Existing folders, organizations, collections, and item actions remain available.
 
 The macOS 15 compatibility contribution is tracked separately in [upstream PR #88](https://github.com/b0x42/prizm/pull/88). This interface redesign belongs to this fork and is not part of that PR. Arc provides visual inspiration only; this fork is not affiliated with Arc or Bitwarden.
 
@@ -27,9 +51,9 @@ The macOS 15 compatibility contribution is tracked separately in [upstream PR #8
   <img alt="Luma: Arc-inspired sidebar, global search above the item list, and native vault details" src="assets/collage.png" width="100%">
 </div>
 
-### Screenshots
+## Screenshots
 
-Actual app views using demonstration vault data.
+App views using demonstration vault data.
 
 | Login · Light | Login · Dark |
 |---|---|
@@ -65,13 +89,39 @@ Luma carries forward Prizm's aim to give macOS users a native, auditable, trustw
 - **Organisation & collection support** — view and manage items across organisations; collections shown as a collapsible tree in the sidebar with item counts; create, rename, and delete collections (admin/manager role); org items encrypted with RSA-unwrapped organisation keys
 - **Folder organization** — create, rename, and delete folders; nested subfolders via `/` naming convention with collapsible tree view; drag-and-drop items onto folders
 - **Arc-inspired interface** — favorite tiles in the sidebar, an inset list and detail area, and full-vault search directly above the item list
-- **Built for power users** — ⌘F global search with match highlighting, ⌘N new item, ⌘L lock, one-keystroke copy for username / password / website, Option to reveal masked fields. [Full shortcut list](#shortcuts)
+- **Built for power users** — ⌘K / ⌘F global search with match highlighting, ⌘B to toggle the sidebar, ⌘N new item, ⌘L lock, one-keystroke copy for username / password / website, Option to reveal masked fields. [Full shortcut list](#shortcuts)
 - **File attachments** — upload, download, open, and delete encrypted file attachments on any vault item; drag-and-drop batch upload; two-layer AES-256-CBC + HMAC-SHA256 encryption with per-attachment keys
 - **Verification codes (TOTP)** — see the current one-time code for any login with a TOTP seed, in the item and in a "Codes" list in the sidebar; codes rotate automatically with a countdown, and ⌃⌘C copies the current code (cleared after 30 s). The raw seed is never shown or copied
 - **Password & passphrase generator** — configurable length, character sets, and word separators
 - **Touch ID / Face ID unlock** — unlock your vault with biometrics; auto-prompts on lock; graceful re-enrollment when fingerprints change
-- **Auto-lock** — locks on sleep and screensaver; sync status always visible in the sidebar
+- **Auto-lock & unlock options** — inactivity timeout, daily lock time, separate Mac lock / sleep / screen saver controls, biometric unlock, and an optional 6–12 digit PIN
+- **Synchronization & appearance** — sync on demand or at a chosen interval; follow the system appearance or select Light / Dark
 - **Accessible** — VoiceOver labels and hints on all controls, keyboard navigable, respects Reduce Motion and Increase Contrast; targets WCAG 2.1 AA. See [ACCESSIBILITY.md](ACCESSIBILITY.md)
+
+## Settings
+
+Open **Luma → Settings…** (**⌘,**) or use the settings button beside your account in the sidebar.
+
+| Setting | Options |
+|---|---|
+| Appearance | System, Light, or Dark |
+| Lock after inactivity | Never, a preset, or a custom duration in minutes / hours, up to 24 hours |
+| Daily lock | An optional time in your Mac's local time zone; a missed lock runs when the Mac wakes |
+| Mac events | Separate switches for locking the Mac, sleep, and the screen saver |
+| Biometric unlock | Enable or disable on a Mac with supported biometric hardware |
+| PIN unlock | Set, change, or disable a 6–12 digit PIN while the vault is unlocked |
+| Manual sync | **Sync now** in Settings, or **⌘R** |
+| Automatic sync | Manual by default; choose a preset or custom interval up to 24 hours |
+
+Inactivity means no keyboard or mouse input **inside Luma**; using other apps does not reset the timer.
+Mac lock, sleep, and screen saver locking are enabled by default. The inactivity timer and daily
+lock are initially off. Automatic sync runs while the vault is unlocked and waits while an item
+is being edited.
+
+Your PIN configuration survives restarts, but **after restarting Luma you must unlock with the
+master password once before using the PIN**. Five incorrect PIN attempts require the master
+password again. Biometric unlock is independent and does not reactivate the PIN in those cases.
+See [PIN unlock security](SECURITY.md#pin-unlock) for storage and security details.
 
 ## Install
 
@@ -109,7 +159,7 @@ brew install --cask prizm
 
 ## Privacy & Security
 
-Luma collects nothing. No telemetry, no analytics, no crash reporting, no usage data. There is no Luma server — the app talks exclusively to your Vaultwarden or Bitwarden instance. Nothing leaves your server.
+Luma has no telemetry, analytics, crash reporting, or usage tracking. Vault operations connect to your configured Vaultwarden or Bitwarden instance; there is no Luma-hosted vault service. Website icons are fetched from the configured icon service (by default `icons.bitwarden.net`), which receives the requested website domain.
 
 All cryptography runs locally on your device:
 
@@ -130,6 +180,8 @@ The app is open source. Verify these claims by reading the code. See [SECURITY.m
 | ⌘B | Show or hide sidebar |
 | ⌘N | New item |
 | ⌘L | Lock vault |
+| ⌘R | Sync vault now |
+| ⌘, | Open Settings |
 | ⌘E | Edit selected item |
 | ⌘S | Save edits |
 | ⇧⌘C | Copy username |
@@ -159,6 +211,14 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for prerequisites, build instructions, and 
 Changes follow an **openspec** workflow: each feature lives in `openspec/changes/<name>/` with a proposal, design, and task list before any code is written. See `openspec/` for active and archived changes.
 
 Pull requests welcome. Please open an issue first for anything significant.
+
+## Credits & License
+
+- **Original app:** [Prizm](https://github.com/b0x42/prizm), created by [Benjamin (`b0x42`)](https://github.com/b0x42), together with its contributors.
+- **This fork:** Luma's interface and branding are maintained by [André (`sk2andy`)](https://github.com/sk2andy).
+- **License:** [MIT with Commons Clause](LICENSE). Benjamin's original copyright notice and the restriction on sale remain part of the license.
+
+If Luma is useful to you, you can [buy André a coffee](https://buymeacoffee.com/sk2andy) to support work on this fork. Please also visit [Prizm](https://github.com/b0x42/prizm) and give the original project some recognition.
 
 ---
 

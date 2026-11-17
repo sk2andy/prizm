@@ -1,9 +1,11 @@
 # Security
 
-Prizm is a password manager. This document explains exactly how it protects your
-data — what is encrypted, where keys live, what threats it defends against, and what
-it does not. The goal is to let any developer or technically literate user audit the
-implementation and decide whether to trust it. No black boxes.
+Luma is a fork of [Prizm by Benjamin (`b0x42`)](https://github.com/b0x42/prizm).
+The original vault and cryptographic architecture come from that project. This document
+describes that foundation and Luma's additional unlock and auto-lock settings: what is
+encrypted, where keys live, and the limits of those protections. The goal is to let any
+developer or technically literate user audit the implementation and decide whether to
+trust it. No black boxes.
 
 ---
 
@@ -21,10 +23,12 @@ of the issue, steps to reproduce, and any relevant log output or proof of concep
 
 ### Data at rest
 
-No vault data is ever written to disk in plaintext. The only sensitive material
-persisted on disk is the **encrypted user key**, stored in the macOS Keychain under
-`kSecAttrAccessibleWhenUnlockedThisDeviceOnly` — accessible only when the Mac is
-unlocked and only on this specific device, excluded from iCloud Keychain and backups.
+Vault item plaintext is held in memory while unlocked. The encrypted user key, session
+tokens, and optional unlock records are stored in Luma's own macOS Keychain namespace
+(`de.sk2andy.Luma`; biometrics use `de.sk2andy.Luma.biometric`). Regular entries use
+`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`. Biometric keys have the additional
+access control described below. Opened attachments have a temporary plaintext-file
+exception described under "File Attachments".
 
 | Data | How it is protected |
 |------|---------------------|
@@ -34,6 +38,7 @@ unlocked and only on this specific device, excluded from iCloud Keychain and bac
 | Encrypted user key (`encUserKey`) | AES-256-CBC encrypted by the stretched master key; stored in Keychain |
 | Access and refresh tokens | Stored in Keychain under `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` |
 | KDF parameters | Stored in Keychain; required for offline unlock |
+| PIN configuration | Random salt and PIN-derived keys encrypted under the vault key; stored in the account's Keychain record |
 
 ### Data in transit
 
@@ -76,6 +81,8 @@ frameworks).
 | Organisation symmetric keys (64 bytes each) | In-memory only (`OrgKeyCache` actor) | RSA-OAEP-SHA1 unwrapped from `RawOrganization.key` during sync; zeroed and cleared from `OrgKeyCache` on lock |
 | Encrypted user key (`encUserKey`) | macOS Keychain | Persisted across sessions; deleted on sign-out |
 | Biometric vault key (64 bytes) | macOS Keychain (biometric-gated) | Created on user opt-in; deleted on sign-out, disable, or biometric invalidation |
+| PIN-derived keys, encrypted under vault key | macOS Keychain | Created on user opt-in; deleted on sign-out or PIN disable |
+| Vault key, encrypted under PIN-derived keys | In-memory only | Survives ordinary vault locks; discarded on app exit, sign-out, PIN disable, or five incorrect PIN attempts |
 | Access token | macOS Keychain | Persisted across sessions; deleted on sign-out |
 | Refresh token | macOS Keychain | Persisted across sessions; deleted on sign-out |
 | KDF parameters | macOS Keychain | Persisted across sessions; deleted on sign-out |
@@ -91,7 +98,9 @@ frameworks).
    b. For each `RawOrganization` in the sync response, strip the PKCS#8 wrapper, import the RSA private key via `SecKeyCreateWithData`, and decrypt `RawOrganization.key` (a Type-4 EncString) with `SecKeyCreateDecryptedData` / `kSecKeyAlgorithmRSAEncryptionOAEPSHA1` → 64-byte org symmetric key.
    c. Store each org key in `OrgKeyCache` keyed by `organizationId`.
    d. Org cipher fields are then decrypted using the org symmetric key rather than the personal vault key, with collection names decrypted via the same org key.
-3. **Lock** — all in-memory key material is zeroed. `OrgKeyCache` is cleared: each
+3. **Lock** — plaintext vault and organisation keys are cleared. If PIN unlock is armed,
+   its encrypted vault-key wrapper remains in memory for the current process (see below).
+   `OrgKeyCache` is cleared: each
    `CryptoKeys` entry's underlying `Data` bytes are overwritten with zeros before the
    dictionary entry is removed. Keychain entries are retained so the vault can be
    unlocked offline without re-authenticating to the server.
@@ -118,6 +127,56 @@ The master password is **never** stored in the biometric Keychain item. Only the
 already-derived vault symmetric keys are cached. On biometric unlock, the keys are
 read directly and passed to `PrizmCryptoService.unlockWith(keys:)`, skipping the KDF
 entirely.
+
+### PIN unlock
+
+PIN unlock is optional and accepts **6–12 ASCII digits**. Setup and changes require an
+unlocked vault. The PIN itself is never persisted or logged.
+
+The implementation reuses the existing cryptographic services: **PBKDF2-SHA256 with
+600,000 iterations**, a cryptographically random 16-byte salt (hex encoded), and
+**HKDF-SHA256** produce the encryption and MAC keys. Both encrypted wrappers below use
+Bitwarden type-2 EncString: AES-256-CBC with HMAC-SHA256, verified before decryption.
+
+| Material | Protection and lifetime |
+|---|---|
+| Persisted configuration | Salt plus PIN-derived keys encrypted **under the vault key**, in the account's Keychain record |
+| Armed PIN session | Vault key encrypted **under the PIN-derived keys**, held only in process memory |
+| Plaintext PIN-derived keys | Used transiently during setup / unlock; buffers are cleared after use |
+
+After a master-password login or unlock, Luma can read the stored configuration and
+recreate the in-memory PIN session. **A restart therefore requires a master-password
+unlock before the PIN works again**, without requiring PIN setup again. Biometric unlock
+does not arm this session after restart.
+
+Five incorrect, valid-format PIN attempts discard the in-memory session. The master
+password must reactivate it; biometric unlock does not reset that restriction. A successful
+PIN unlock resets the failed-attempt count. Disabling PIN unlock or signing out removes
+its persistent configuration and in-memory session.
+
+**Security limit:** a PIN has much less entropy than a strong master password. The
+five-attempt limit is enforced by the running app, not by the cryptographic wrapper. An
+attacker who extracts the armed session from process memory can attempt PIN guesses
+offline without that limit. The persisted PIN record alone is not a PIN-decryptable copy
+of the vault key. Buffer clearing is best effort because Swift and framework operations
+may create copies.
+
+### Auto-lock and synchronization settings
+
+- **Inactivity** measures keyboard and mouse input within Luma. Activity in another app
+  does not extend the timeout. Users can choose Never or a duration up to 24 hours.
+- **Daily lock** uses the Mac's local clock. If the process could not check while the Mac
+  was asleep, the missed daily lock is handled after wake.
+- **Mac lock, sleep, and screen saver** each have an independent switch, enabled by
+  default. Inactivity and daily-time locking are initially disabled.
+- **Manual lock** remains available through **⌘L**, regardless of automatic settings.
+- **Automatic sync** is opt-in, runs only while unlocked, and waits during item editing.
+  Manual sync is available through Settings or **⌘R**. Both use the existing encrypted
+  vault-sync path.
+
+Disabling automatic lock triggers leaves the vault unlocked until another enabled
+trigger or a manual lock occurs. These preferences are non-secret and persist in
+UserDefaults; they do not change server authentication or encryption.
 
 ---
 
@@ -223,8 +282,9 @@ item's detail pane and in a "Codes" list.
   attacker must still brute-force the KDF to decrypt it.
 - **Disk / at-rest compromise** — Vault data is never on disk in plaintext. The
   encrypted user key in the Keychain cannot be decrypted without the master password.
-- **Memory dump after lock** — All key material is zeroed on lock. A memory dump
-  taken after the vault locks reveals no usable keys.
+- **Plaintext keys after lock** — Luma clears plaintext vault and organisation keys
+  when locking. An armed PIN session retains an encrypted vault-key wrapper in memory;
+  its offline-guessing limitation is described under PIN unlock. Memory clearing is best effort.
 - **Clipboard sniffing** — Copied secrets are automatically cleared from the clipboard
   after 30 seconds (best-effort on app quit).
 - **Network eavesdropping** — All server communication uses HTTPS/TLS. Vault payloads

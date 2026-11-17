@@ -7,6 +7,7 @@
 
 import AppKit
 import Combine
+import Observation
 import SwiftUI
 import os.log
 
@@ -16,6 +17,7 @@ struct PrizmApp: App {
     @StateObject private var container: AppContainer
     @StateObject private var rootVM:    RootViewModel
     @State       private var optionKeyMonitor = OptionKeyMonitor()
+    @State       private var systemAppearance = SystemAppearance()
 
     // Used by the About menu item to open the custom About window scene.
     @Environment(\.openWindow) private var openWindow
@@ -32,11 +34,9 @@ struct PrizmApp: App {
                 .frame(minWidth: rootVM.isVaultUnlocked ? nil : 480,
                        minHeight: rootVM.isVaultUnlocked ? nil : 360)
                 .environment(optionKeyMonitor)
-                #if DEBUG
-                .preferredColorScheme(UITestFixtures.isEnabled && UITestFixtures.isScreenshotMode
-                    ? (UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light)
-                    : nil)
-                #endif
+                .preferredColorScheme(preferredColorScheme)
+                .environment(\.colorScheme, preferredColorScheme)
+                .onAppear { rootVM.startAutomation() }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultLaunchBehavior(.presented)
@@ -65,6 +65,10 @@ struct PrizmApp: App {
                 }
                 .keyboardShortcut("q", modifiers: [.command, .shift])
                 .disabled(!rootVM.isSignedIn)
+
+                Button("Sync Vault Now") { rootVM.syncVault() }
+                    .disabled(!rootVM.canSync)
+                    .keyboardShortcut("r", modifiers: .command)
 
                 Button("Lock Vault") {
                     rootVM.lockVault()
@@ -126,6 +130,8 @@ struct PrizmApp: App {
         // free resize since the content is a fixed-layout info panel.
         Window("About Luma", id: "about") {
             AboutView()
+                .preferredColorScheme(preferredColorScheme)
+                .environment(\.colorScheme, preferredColorScheme)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
@@ -134,8 +140,28 @@ struct PrizmApp: App {
         // The Settings scene does not inherit the WindowGroup environment, so we pass
         // the container explicitly via .environmentObject().
         Settings {
-            SettingsView(authRepository: container.authRepository)
+            SettingsView(
+                authRepository: container.authRepository,
+                preferences: rootVM.preferences,
+                isVaultUnlocked: rootVM.isVaultUnlocked,
+                canSync: rootVM.canSync,
+                isSyncing: rootVM.isSyncing,
+                lastSyncedAt: rootVM.vaultBrowserVM.lastSyncedAt,
+                syncError: rootVM.syncError,
+                onSync: { rootVM.syncVault() }
+            )
+            .preferredColorScheme(preferredColorScheme)
+            .environment(\.colorScheme, preferredColorScheme)
         }
+    }
+
+    private var preferredColorScheme: ColorScheme {
+        #if DEBUG
+        if UITestFixtures.isEnabled && UITestFixtures.isScreenshotMode {
+            return UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light
+        }
+        #endif
+        return rootVM.preferences.appearance.colorScheme ?? systemAppearance.colorScheme
     }
 
     @ViewBuilder
@@ -143,6 +169,10 @@ struct PrizmApp: App {
         switch rootVM.screen {
         case .login:
             LoginView(viewModel: rootVM.loginVM)
+
+        case .locking:
+            ProgressView("Locking vault…")
+                .frame(minWidth: 480, minHeight: 360)
 
         case .loading:
             ProgressView("Signing in…")
@@ -221,6 +251,7 @@ struct PrizmApp: App {
 protocol RootViewModelDependencies: AnyObject {
     var authRepo: any AuthRepository { get }
     var vaultRepo: any VaultRepository { get }
+    var syncVaultUseCase: any SyncUseCase { get }
     /// Generates the current TOTP code for the "Copy Code" command.
     var generateTOTPCode: any GenerateTOTPCodeUseCase { get }
     /// The per-cipher attachment key cache. Cleared on vault lock alongside the vault store.
@@ -238,6 +269,7 @@ protocol RootViewModelDependencies: AnyObject {
 extension AppContainer: RootViewModelDependencies {
     var authRepo: any AuthRepository { authRepository }
     var vaultRepo: any VaultRepository { vaultStore }
+    var syncVaultUseCase: any SyncUseCase { syncUseCase }
     var generateTOTPCode: any GenerateTOTPCodeUseCase { generateTOTPCodeUseCase }
 }
 
@@ -252,6 +284,7 @@ final class RootViewModel: ObservableObject {
     enum Screen {
         case login
         case loading
+        case locking
         case totpPrompt
         case unlock
         case syncing(message: String)
@@ -259,6 +292,14 @@ final class RootViewModel: ObservableObject {
     }
 
     @Published var screen: Screen
+    @Published private(set) var isSyncing = false
+    @Published private(set) var syncError: String?
+    let preferences: AppPreferences
+
+    private var automation = VaultAutomation(now: Date())
+    private var syncTask: Task<Void, Never>?
+    nonisolated(unsafe) private var automationTask: Task<Void, Never>?
+    nonisolated(unsafe) private var activityMonitor: Any?
 
     // MARK: - "Item" menu state
 
@@ -287,7 +328,8 @@ final class RootViewModel: ObservableObject {
     nonisolated(unsafe) private var screensaverObserver: NSObjectProtocol?
     nonisolated(unsafe) private var screenLockObserver: NSObjectProtocol?
 
-    init(container: any RootViewModelDependencies) {
+    init(container: any RootViewModelDependencies, preferences: AppPreferences = AppPreferences()) {
+        self.preferences = preferences
         self.container      = container
         self.loginVM        = container.makeLoginViewModel()
         self.vaultBrowserVM = container.makeVaultBrowserViewModel()
@@ -328,6 +370,8 @@ final class RootViewModel: ObservableObject {
     }
 
     deinit {
+        automationTask?.cancel()
+        if let activityMonitor { NSEvent.removeMonitor(activityMonitor) }
         if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
         if let screensaverObserver { DistributedNotificationCenter.default().removeObserver(screensaverObserver) }
         if let screenLockObserver { DistributedNotificationCenter.default().removeObserver(screenLockObserver) }
@@ -344,8 +388,10 @@ final class RootViewModel: ObservableObject {
 
         // Unlock flow — re-subscribe whenever unlockVM is assigned.
         $unlockVM
-            .compactMap { $0 }
-            .flatMap { $0.$flowState }
+            .map { viewModel -> AnyPublisher<UnlockFlowState, Never> in
+                viewModel?.$flowState.eraseToAnyPublisher() ?? Empty().eraseToAnyPublisher()
+            }
+            .switchToLatest()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in self?.handleUnlockFlow(state) }
             .store(in: &cancellables)
@@ -378,21 +424,30 @@ final class RootViewModel: ObservableObject {
             forName: NSWorkspace.willSleepNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in MainActor.assumeIsolated { self?.lockVault() } }
+        ) { [weak self] _ in MainActor.assumeIsolated {
+            guard let self, self.preferences.lockOnSleep else { return }
+            self.lockVault()
+        } }
 
         // Auto-lock on screensaver start.
         screensaverObserver = DistributedNotificationCenter.default().addObserver(
             forName: .init("com.apple.screensaver.didstart"),
             object: nil,
             queue: .main
-        ) { [weak self] _ in MainActor.assumeIsolated { self?.lockVault() } }
+        ) { [weak self] _ in MainActor.assumeIsolated {
+            guard let self, self.preferences.lockOnScreenSaver else { return }
+            self.lockVault()
+        } }
 
         // Auto-lock on screen lock (⌃⌘Q / Lock Screen menu).
         screenLockObserver = DistributedNotificationCenter.default().addObserver(
             forName: .init("com.apple.screenIsLocked"),
             object: nil,
             queue: .main
-        ) { [weak self] _ in MainActor.assumeIsolated { self?.lockVault() } }
+        ) { [weak self] _ in MainActor.assumeIsolated {
+            guard let self, self.preferences.lockOnMacLock else { return }
+            self.lockVault()
+        } }
     }
 
     /// Re-scopes the sync timestamp to the current account and records a successful sync,
@@ -413,6 +468,8 @@ final class RootViewModel: ObservableObject {
             logger.error("\(caller, privacy: .public)(.vault): no stored account; sync timestamp not re-scoped")
         }
         screen = .vault
+        automation = VaultAutomation(now: Date())
+        syncError = nil
         // Defer handleSyncCompleted to the next run-loop cycle so that the initial
         // VaultBrowserView layout pass (triggered by `screen = .vault` above) commits
         // before any @Published mutations from async vault reads arrive.
@@ -435,6 +492,7 @@ final class RootViewModel: ObservableObject {
     }
 
     func handleLoginFlow(_ state: LoginFlowState) {
+        if case .locking = screen { return }
         switch state {
         case .login:       screen = .login
         case .loading:     screen = .loading
@@ -448,7 +506,7 @@ final class RootViewModel: ObservableObject {
     /// Whether the user has an active session (vault or unlock screen).
     var isSignedIn: Bool {
         switch screen {
-        case .vault, .unlock, .syncing: return true
+        case .vault, .unlock, .syncing, .locking: return true
         default: return false
         }
     }
@@ -467,8 +525,14 @@ final class RootViewModel: ObservableObject {
 
     /// Clears all session data and returns to the login screen.
     func signOut() {
+        if case .locking = screen { return }
         vaultBrowserVM.resetNavigationHistory()
+        screen = .locking
+        syncTask?.cancel()
         Task {
+            await loginVM.cancelAndWait()
+            await unlockVM?.cancelAndWait()
+            await syncTask?.value
             do {
                 try await container.authRepo.signOut()
             } catch {
@@ -476,6 +540,7 @@ final class RootViewModel: ObservableObject {
             }
             await container.vaultRepo.clearVault()
             await container.vaultKeyCache.clear()
+            await container.orgKeyCache.clear()
             unlockVM = nil
             screen   = .login
             logger.info("Sign out completed")
@@ -487,9 +552,15 @@ final class RootViewModel: ObservableObject {
     /// Zeros in-memory key material, clears the vault cache, and transitions to the unlock screen.
     /// No-op if the vault is not currently unlocked.
     func lockVault() {
-        guard isVaultUnlocked else { return }
+        guard canLockVault else { return }
         vaultBrowserVM.resetNavigationHistory()
+        screen = .locking
+        syncTask?.cancel()
         Task {
+            // Drain authentication and refresh before clearing caches so neither can reopen the vault.
+            await loginVM.cancelAndWait()
+            await unlockVM?.cancelAndWait()
+            await syncTask?.value
             await container.authRepo.lockVault()
             await container.vaultRepo.clearVault()
             // Clear all key caches in the same lock path as the vault store.
@@ -503,6 +574,14 @@ final class RootViewModel: ObservableObject {
                 screen = .login
             }
             logger.info("Vault locked")
+        }
+    }
+
+    private var canLockVault: Bool {
+        switch screen {
+        case .vault, .syncing, .loading: return true
+        case .unlock: return unlockVM?.flowState == .loading || unlockVM?.showEnrollmentPrompt == true
+        default: return false
         }
     }
 
@@ -523,6 +602,7 @@ final class RootViewModel: ObservableObject {
     }
 
     func handleUnlockFlow(_ state: UnlockFlowState) {
+        if case .locking = screen { return }
         switch state {
         case .unlock:       screen = .unlock
         case .loading:      screen = .unlock   // stay on unlock screen with spinner
@@ -534,6 +614,62 @@ final class RootViewModel: ObservableObject {
             screen   = .login
         }
         logger.info("Screen transition → \(String(describing: state))")
+    }
+
+    // MARK: - Scheduled locking and refresh
+
+    var canSync: Bool {
+        guard case .vault = screen else { return false }
+        return !isSyncing && !vaultBrowserVM.editSheetOpen
+    }
+
+    func startAutomation() {
+        guard automationTask == nil else { return }
+        // AppKit exposes app-local input without Accessibility or Input Monitoring permission.
+        activityMonitor = NSEvent.addLocalMonitorForEvents(matching: [
+            .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown,
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .scrollWheel
+        ]) { [weak self] event in
+            MainActor.assumeIsolated { self?.automation.recordActivity(at: Date()) }
+            return event
+        }
+        automationTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) }
+                catch { return }
+                self?.checkAutomation(at: Date())
+            }
+        }
+    }
+
+    func checkAutomation(at now: Date) {
+        guard case .vault = screen else { return }
+        switch automation.check(at: now, preferences: preferences) {
+        case .lock: lockVault()
+        case .sync: syncVault()
+        case nil: break
+        }
+    }
+
+    func syncVault() {
+        guard canSync else { return }
+        isSyncing = true
+        syncError = nil
+        automation.recordSync(at: Date())
+        syncTask = Task { [weak self] in
+            guard let self else { return }
+            defer { self.isSyncing = false }
+            do {
+                let result = try await self.container.syncVaultUseCase.execute(progress: { _ in })
+                guard !Task.isCancelled, case .vault = self.screen else { return }
+                self.vaultBrowserVM.handleSyncCompleted(syncedAt: result.syncedAt)
+            } catch {
+                guard !Task.isCancelled, case .vault = self.screen else { return }
+                self.syncError = error.localizedDescription
+                self.vaultBrowserVM.handleSyncError(error.localizedDescription)
+                self.logger.error("Vault refresh failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     // MARK: - Copy field from selected item
@@ -583,4 +719,23 @@ final class RootViewModel: ObservableObject {
         case .totp:     return nil   // handled by copySelectedCode(); the seed is never copied
         }
     }
+}
+
+/// Resolve System independently of a window's previous override. SwiftUI can retain the
+/// old content appearance when preferredColorScheme changes back to nil on macOS 15.
+@Observable
+@MainActor
+final class SystemAppearance {
+    private(set) var colorScheme: ColorScheme
+    @ObservationIgnored private var observation: NSKeyValueObservation?
+
+    init(application: NSApplication = .shared) {
+        colorScheme = application.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? .dark : .light
+        observation = application.observe(\.effectiveAppearance, options: [.new]) { [weak self] app, _ in
+            let isDark = app.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            Task { @MainActor [weak self] in self?.colorScheme = isDark ? .dark : .light }
+        }
+    }
+
+    nonisolated deinit {}
 }

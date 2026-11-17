@@ -453,21 +453,21 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
         controller.splitView = BorderlessSplitView()
         controller.splitView.isVertical = true
         controller.splitView.dividerStyle = .thin
-        let sidebarItem = splitItem(sidebar(), minimum: Spacing.sidebarMinimumWidth)
+        let sidebarItem = splitItem(sidebar(), minimum: Spacing.sidebarMinimumWidth, colorScheme: context.environment.colorScheme)
         sidebarItem.canCollapse = true
         // Preserve these widths on window resize, but yield to divider drags (priority 490).
         sidebarItem.holdingPriority = NSLayoutConstraint.Priority(rawValue: 260)
         controller.addSplitViewItem(sidebarItem)
-        let listItem = splitItem(content(), minimum: listMinimum)
+        let listItem = splitItem(content(), minimum: listMinimum, colorScheme: context.environment.colorScheme)
         listItem.holdingPriority = NSLayoutConstraint.Priority(rawValue: 260)
         controller.addSplitViewItem(listItem)
-        controller.addSplitViewItem(splitItem(detail(), minimum: Spacing.detailMinimumWidth))
+        controller.addSplitViewItem(splitItem(detail(), minimum: Spacing.detailMinimumWidth, colorScheme: context.environment.colorScheme))
         sidebarItem.isCollapsed = !isSidebarVisible
         return controller
     }
 
-    private func splitItem<V: View>(_ view: V, minimum: CGFloat) -> NSSplitViewItem {
-        let host = NSHostingController(rootView: view)
+    private func splitItem<V: View>(_ view: V, minimum: CGFloat, colorScheme: ColorScheme) -> NSSplitViewItem {
+        let host = NSHostingController(rootView: AnyView(view.environment(\.colorScheme, colorScheme)))
         host.safeAreaRegions = []
         host.sizingOptions = []
         let item = NSSplitViewItem(viewController: host)
@@ -477,9 +477,15 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
 
     func updateNSViewController(_ controller: NSSplitViewController, context: Context) {
         let items = controller.splitViewItems
-        (items[0].viewController as? NSHostingController<Sidebar>)?.rootView = sidebar()
-        (items[1].viewController as? NSHostingController<Content>)?.rootView = content()
-        (items[2].viewController as? NSHostingController<Detail>)?.rootView = detail()
+        (items[0].viewController as? NSHostingController<AnyView>)?.rootView = AnyView(
+            sidebar().environment(\.colorScheme, context.environment.colorScheme)
+        )
+        (items[1].viewController as? NSHostingController<AnyView>)?.rootView = AnyView(
+            content().environment(\.colorScheme, context.environment.colorScheme)
+        )
+        (items[2].viewController as? NSHostingController<AnyView>)?.rootView = AnyView(
+            detail().environment(\.colorScheme, context.environment.colorScheme)
+        )
         items[1].minimumThickness = listMinimum
         if items[0].isCollapsed == isSidebarVisible {
             if AccessibilityInfo.prefersReducedMotion {

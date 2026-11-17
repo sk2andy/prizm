@@ -89,6 +89,40 @@ final class MockAuthRepository: AuthRepository {
         lockVaultCalledCount += 1
     }
 
+    // MARK: - PIN unlock
+
+    var pinUnlockEnabled = false
+    var pinUnlockAvailable = false
+    var enablePINUnlockError: Error?
+    var disablePINUnlockError: Error?
+    var unlockWithPINError: Error?
+    private(set) var enablePINUnlockCalled = false
+    private(set) var disablePINUnlockCalled = false
+    private(set) var unlockWithPINCalled = false
+
+    func enablePINUnlock(_ pin: Data) async throws {
+        enablePINUnlockCalled = true
+        if let error = enablePINUnlockError { throw error }
+        pinUnlockEnabled = true
+        pinUnlockAvailable = true
+    }
+
+    func disablePINUnlock() async throws {
+        disablePINUnlockCalled = true
+        if let error = disablePINUnlockError { throw error }
+        pinUnlockEnabled = false
+        pinUnlockAvailable = false
+    }
+
+    func unlockWithPIN(_ pin: Data) async throws -> Account {
+        unlockWithPINCalled = true
+        if let error = unlockWithPINError { throw error }
+        guard case .success(let account) = stubbedLoginResult else {
+            throw AuthError.invalidPIN
+        }
+        return account
+    }
+
     // MARK: - Biometric unlock
 
     var stubbedDeviceBiometricCapable: Bool = false

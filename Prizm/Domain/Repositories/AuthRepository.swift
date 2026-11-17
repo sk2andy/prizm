@@ -57,6 +57,23 @@ protocol AuthRepository: AnyObject {
     /// - Throws: `AuthError.invalidCredentials` on wrong password.
     func unlockWithPassword(_ masterPassword: Data) async throws -> Account
 
+    // MARK: - PIN unlock
+
+    /// Whether a PIN is configured for the active account. The PIN itself is never stored.
+    var pinUnlockEnabled: Bool { get }
+
+    /// PIN unlock requires a password unlock in this app session; restarting clears availability.
+    var pinUnlockAvailable: Bool { get }
+
+    /// Configures a 6–12 digit PIN while unlocked, protecting it with the current vault key.
+    func enablePINUnlock(_ pin: Data) async throws
+
+    /// Deletes the configured PIN and discards the in-memory PIN unlock material.
+    func disablePINUnlock() async throws
+
+    /// Unlocks using the session's PIN-protected vault key. Five wrong attempts require a password.
+    func unlockWithPIN(_ pin: Data) async throws -> Account
+
     // MARK: - Session
 
     /// Returns the stored `Account` from Keychain, or nil if no session exists.
@@ -126,6 +143,10 @@ nonisolated enum AuthError: Error, LocalizedError, Equatable {
     case biometricItemNotFound
     /// Biometric unlock cannot be enabled — vault is locked (keys not in memory).
     case biometricUnavailable
+    case invalidPIN
+    case invalidPINFormat
+    case pinUnavailable
+    case pinAttemptsExceeded
 
     var errorDescription: String? {
         switch self {
@@ -150,6 +171,14 @@ nonisolated enum AuthError: Error, LocalizedError, Equatable {
             return nil
         case .biometricUnavailable:
             return "Biometric unlock is not available. Please unlock with your master password."
+        case .invalidPIN:
+            return "Incorrect PIN. Please try again."
+        case .invalidPINFormat:
+            return "Choose a PIN with 6–12 digits."
+        case .pinUnavailable:
+            return "Unlock with your master password to use your PIN."
+        case .pinAttemptsExceeded:
+            return "Too many incorrect PIN attempts. Unlock with your master password to use your PIN again."
         }
     }
 }

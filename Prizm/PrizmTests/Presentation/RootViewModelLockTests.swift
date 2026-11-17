@@ -142,6 +142,7 @@ final class MockRootDependencies: RootViewModelDependencies {
     var generateTOTPCode: any GenerateTOTPCodeUseCase = UnusedGenerateTOTPCode()
     let authRepo: any AuthRepository
     let vaultRepo: any VaultRepository
+    var syncVaultUseCase: any SyncUseCase = MockSyncUseCase()
     let vaultKeyCache = VaultKeyCache()
     let orgKeyCache   = OrgKeyCache()
 

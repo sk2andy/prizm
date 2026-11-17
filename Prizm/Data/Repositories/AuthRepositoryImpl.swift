@@ -49,6 +49,22 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
     }
     private var pendingTwoFactor: PendingTwoFactor?
 
+    /// Only the PIN-derived key is persisted, encrypted under the vault key. There is no
+    /// PIN-decryptable vault key on disk: the opposite wrapper exists only after password unlock.
+    private struct PINRecord: Codable {
+        let salt: String
+        let encryptedPINKey: String
+    }
+
+    private struct PINSession {
+        let userId: String
+        let salt: String
+        let encryptedVaultKey: EncString
+        var failedAttempts = 0
+    }
+
+    private var pinSession: PINSession?
+
     // MARK: - Init
 
     init(
@@ -320,47 +336,8 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
         )
         await crypto.unlockWith(keys: vaultKeys)
 
-        // Restore API client state so the post-unlock sync can make authenticated requests.
-        // Both baseURL and accessToken are nil on a fresh app launch until restored here.
-        serverEnvironment = restoredAccount.serverEnvironment
-        await apiClient.setBaseURL(restoredAccount.serverEnvironment.base)
-
-        if let accessToken = try? readString(key: KeychainKey.user(userId, "accessToken")) {
-            await apiClient.setAccessToken(accessToken)
-            if DebugConfig.isEnabled {
-                logger.debug("[debug] unlock: baseURL and access token restored to API client")
-            }
-
-            // The stored access token may be expired. Attempt a refresh using the stored
-            // refresh token so the post-unlock sync doesn't fail with 401.
-            let refreshTokenOpt = try? readString(key: KeychainKey.user(userId, "refreshToken"))
-            if refreshTokenOpt == nil {
-                logger.debug("Unlock: no refresh token in Keychain — skipping token refresh")
-            }
-            if let refreshToken = refreshTokenOpt {
-                do {
-                    let tokens = try await apiClient.refreshAccessToken(refreshToken: refreshToken)
-                    do {
-                        try writeString(tokens.accessToken, key: KeychainKey.user(userId, "accessToken"))
-                        if let newRefresh = tokens.refreshToken {
-                            try writeString(newRefresh, key: KeychainKey.user(userId, "refreshToken"))
-                        }
-                    } catch {
-                        // Persisting the refreshed token failed — the next launch will use
-                        // the old (expired) token and the user may be signed out unexpectedly.
-                        logger.error("Unlock: failed to persist refreshed tokens — next launch may require re-auth: \(error.localizedDescription, privacy: .public)")
-                    }
-                    if DebugConfig.isEnabled {
-                        logger.debug("[debug] unlock: access token refreshed successfully")
-                    }
-                } catch {
-                    // Refresh failed — keep the old token; sync will fail with 401 (non-fatal).
-                    logger.warning("Unlock: token refresh failed — sync may fail: \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        } else {
-            logger.error("Unlock: access token not found in Keychain — sync will fail with 401")
-        }
+        restorePINSession(userId: userId, vaultKeys: vaultKeys)
+        await restoreAPISession(for: restoredAccount)
 
         logger.info("Unlock succeeded")
         await MainActor.run {
@@ -386,6 +363,7 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
 
     func signOut() async throws {
         logger.info("Signing out — clearing session data")
+        pinSession = nil
         let userId: String
         do {
             userId = try readString(key: KeychainKey.activeUserId)
@@ -400,7 +378,7 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
         // Clear per-user keys first — best-effort, log failures.
         if !userId.isEmpty {
             for suffix in ["accessToken", "refreshToken", "encUserKey", "kdfParams",
-                           "email", "name", "serverEnvironment"] {
+                           "email", "name", "serverEnvironment", "pinUnlock"] {
                 do {
                     try keychain.delete(key: KeychainKey.user(userId, suffix))
                 } catch {
@@ -437,6 +415,132 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
         await MainActor.run {
             NotificationCenter.default.post(name: .vaultDidLock, object: nil)
         }
+    }
+
+    // MARK: - PIN unlock
+
+    var pinUnlockEnabled: Bool {
+        guard let userId = try? readString(key: KeychainKey.activeUserId) else { return false }
+        return (try? keychain.read(key: KeychainKey.user(userId, "pinUnlock"))) != nil
+    }
+
+    var pinUnlockAvailable: Bool { pinSession != nil }
+
+    /// Wraps the PIN KDF keys with the vault key for persistence, and the vault key with
+    /// the PIN KDF keys in memory only. PBKDF2-SHA256 (RFC 8018), HKDF (RFC 5869), and
+    /// authenticated AES-CBC/HMAC use the existing crypto implementation; PINs are never saved.
+    func enablePINUnlock(_ pin: Data) async throws {
+        guard Self.isValidPIN(pin) else { throw AuthError.invalidPINFormat }
+        guard await crypto.isUnlocked,
+              let userId = try? readString(key: KeychainKey.activeUserId) else {
+            throw AuthError.pinUnavailable
+        }
+        var vaultKeys = try await crypto.currentKeys()
+        defer { Self.clearKeys(&vaultKeys) }
+        let salt = try CryptographicRandomnessProvider().randomBytes(count: 16)
+            .map { String(format: "%02x", $0) }.joined()
+        var pinKeys = try await derivePINKeys(pin, salt: salt)
+        defer { Self.clearKeys(&pinKeys) }
+        var pinKeyData = pinKeys.toData()
+        var vaultKeyData = vaultKeys.toData()
+        defer {
+            pinKeyData.resetBytes(in: 0..<pinKeyData.count)
+            vaultKeyData.resetBytes(in: 0..<vaultKeyData.count)
+        }
+        let record = PINRecord(
+            salt: salt,
+            encryptedPINKey: try EncString.encrypt(data: pinKeyData, keys: vaultKeys).toString()
+        )
+        let session = PINSession(
+            userId: userId,
+            salt: salt,
+            encryptedVaultKey: try EncString.encrypt(data: vaultKeyData, keys: pinKeys)
+        )
+        try keychain.write(data: JSONEncoder().encode(record), key: KeychainKey.user(userId, "pinUnlock"))
+        pinSession = session
+        logger.info("PIN unlock enabled")
+    }
+
+    func disablePINUnlock() async throws {
+        pinSession = nil
+        if let userId = try? readString(key: KeychainKey.activeUserId) {
+            try keychain.delete(key: KeychainKey.user(userId, "pinUnlock"))
+        }
+        logger.info("PIN unlock disabled")
+    }
+
+    func unlockWithPIN(_ pin: Data) async throws -> Account {
+        guard let session = pinSession else { throw AuthError.pinUnavailable }
+        guard Self.isValidPIN(pin) else { throw AuthError.invalidPINFormat }
+        var pinKeys = try await derivePINKeys(pin, salt: session.salt)
+        defer { Self.clearKeys(&pinKeys) }
+        var vaultKeyData: Data
+        do {
+            vaultKeyData = try session.encryptedVaultKey.decrypt(keys: pinKeys)
+        } catch EncStringError.macMismatch {
+            pinSession?.failedAttempts += 1
+            if let failures = pinSession?.failedAttempts, failures >= 5 {
+                pinSession = nil
+                logger.info("PIN unlock requires the master password after five failed attempts")
+                throw AuthError.pinAttemptsExceeded
+            }
+            throw AuthError.invalidPIN
+        }
+        defer { vaultKeyData.resetBytes(in: 0..<vaultKeyData.count) }
+        guard var vaultKeys = CryptoKeys(data: vaultKeyData) else { throw AuthError.pinUnavailable }
+        defer { Self.clearKeys(&vaultKeys) }
+        let restoredAccount = try account(for: session.userId)
+        await crypto.unlockWith(keys: vaultKeys)
+        pinSession?.failedAttempts = 0
+        await restoreAPISession(for: restoredAccount)
+        logger.info("PIN unlock succeeded")
+        NotificationCenter.default.post(name: .vaultDidUnlock, object: nil)
+        return restoredAccount
+    }
+
+    private static func isValidPIN(_ pin: Data) -> Bool {
+        (6...12).contains(pin.count) && pin.allSatisfy { (48...57).contains($0) }
+    }
+
+    private func derivePINKeys(_ pin: Data, salt: String) async throws -> CryptoKeys {
+        var masterKey = try await crypto.makeMasterKey(
+            password: pin,
+            email: salt,
+            kdf: KdfParams(type: .pbkdf2, iterations: 600_000, memory: nil, parallelism: nil)
+        )
+        defer { masterKey.resetBytes(in: 0..<masterKey.count) }
+        return try await crypto.stretchKey(masterKey: masterKey)
+    }
+
+    /// Called only after password-based unlock/login. Biometrics deliberately cannot
+    /// activate PIN after restart or after five failed PIN attempts.
+    private func restorePINSession(userId: String, vaultKeys: CryptoKeys) {
+        pinSession = nil
+        do {
+            let data = try keychain.read(key: KeychainKey.user(userId, "pinUnlock"))
+            let record = try JSONDecoder().decode(PINRecord.self, from: data)
+            var pinKeyData = try EncString(string: record.encryptedPINKey).decrypt(keys: vaultKeys)
+            defer { pinKeyData.resetBytes(in: 0..<pinKeyData.count) }
+            guard var pinKeys = CryptoKeys(data: pinKeyData) else { throw KeychainError.invalidData }
+            defer { Self.clearKeys(&pinKeys) }
+            var vaultKeyData = vaultKeys.toData()
+            defer { vaultKeyData.resetBytes(in: 0..<vaultKeyData.count) }
+            pinSession = PINSession(
+                userId: userId,
+                salt: record.salt,
+                encryptedVaultKey: try EncString.encrypt(data: vaultKeyData, keys: pinKeys)
+            )
+        } catch KeychainError.itemNotFound {
+            // PIN has not been configured; password unlock remains the normal path.
+        } catch {
+            // A broken optional PIN record must not prevent master-password access.
+            logger.error("Cannot restore PIN unlock: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private static func clearKeys(_ keys: inout CryptoKeys) {
+        keys.encryptionKey.resetBytes(in: keys.encryptionKey.indices)
+        keys.macKey.resetBytes(in: keys.macKey.indices)
     }
 
     // MARK: - Biometric unlock
@@ -562,25 +666,7 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
 
         await crypto.unlockWith(keys: vaultKeys)
 
-        // Restore API client state — same as unlockWithPassword().
-        serverEnvironment = restoredAccount.serverEnvironment
-        await apiClient.setBaseURL(restoredAccount.serverEnvironment.base)
-
-        if let accessToken = try? readString(key: KeychainKey.user(userId, "accessToken")) {
-            await apiClient.setAccessToken(accessToken)
-
-            if let refreshToken = try? readString(key: KeychainKey.user(userId, "refreshToken")) {
-                do {
-                    let tokens = try await apiClient.refreshAccessToken(refreshToken: refreshToken)
-                    try? writeString(tokens.accessToken, key: KeychainKey.user(userId, "accessToken"))
-                    if let newRefresh = tokens.refreshToken {
-                        try? writeString(newRefresh, key: KeychainKey.user(userId, "refreshToken"))
-                    }
-                } catch {
-                    logger.warning("Biometric unlock: token refresh failed — sync may fail: \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        }
+        await restoreAPISession(for: restoredAccount)
 
         logger.info("Biometric unlock succeeded")
         await MainActor.run {
@@ -632,23 +718,7 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
         }
 
         await crypto.unlockWith(keys: vaultKeys)
-        serverEnvironment = restoredAccount.serverEnvironment
-        await apiClient.setBaseURL(restoredAccount.serverEnvironment.base)
-
-        if let accessToken = try? readString(key: KeychainKey.user(userId, "accessToken")) {
-            await apiClient.setAccessToken(accessToken)
-            if let refreshToken = try? readString(key: KeychainKey.user(userId, "refreshToken")) {
-                do {
-                    let tokens = try await apiClient.refreshAccessToken(refreshToken: refreshToken)
-                    try? writeString(tokens.accessToken, key: KeychainKey.user(userId, "accessToken"))
-                    if let newRefresh = tokens.refreshToken {
-                        try? writeString(newRefresh, key: KeychainKey.user(userId, "refreshToken"))
-                    }
-                } catch {
-                    logger.warning("Embedded biometric: token refresh failed: \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        }
+        await restoreAPISession(for: restoredAccount)
 
         logger.info("Embedded biometric unlock succeeded")
         await MainActor.run {
@@ -658,6 +728,53 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
     }
 
     // MARK: - Private helpers
+
+    /// Restores networking for every unlock method and refreshes an expired bearer token.
+    /// Failure keeps the locally unlocked vault available; the subsequent sync surfaces network errors.
+    private func restoreAPISession(for restoredAccount: Account) async {
+        let userId = restoredAccount.userId
+        // Restore API client state so the post-unlock sync can make authenticated requests.
+        // Both baseURL and accessToken are nil on a fresh app launch until restored here.
+        serverEnvironment = restoredAccount.serverEnvironment
+        await apiClient.setBaseURL(restoredAccount.serverEnvironment.base)
+
+        if let accessToken = try? readString(key: KeychainKey.user(userId, "accessToken")) {
+            await apiClient.setAccessToken(accessToken)
+            if DebugConfig.isEnabled {
+                logger.debug("[debug] unlock: baseURL and access token restored to API client")
+            }
+
+            // The stored access token may be expired. Attempt a refresh using the stored
+            // refresh token so the post-unlock sync doesn't fail with 401.
+            let refreshTokenOpt = try? readString(key: KeychainKey.user(userId, "refreshToken"))
+            if refreshTokenOpt == nil {
+                logger.debug("Unlock: no refresh token in Keychain — skipping token refresh")
+            }
+            if let refreshToken = refreshTokenOpt {
+                do {
+                    let tokens = try await apiClient.refreshAccessToken(refreshToken: refreshToken)
+                    do {
+                        try writeString(tokens.accessToken, key: KeychainKey.user(userId, "accessToken"))
+                        if let newRefresh = tokens.refreshToken {
+                            try writeString(newRefresh, key: KeychainKey.user(userId, "refreshToken"))
+                        }
+                    } catch {
+                        // Persisting the refreshed token failed — the next launch will use
+                        // the old (expired) token and the user may be signed out unexpectedly.
+                        logger.error("Unlock: failed to persist refreshed tokens — next launch may require re-auth: \(error.localizedDescription, privacy: .public)")
+                    }
+                    if DebugConfig.isEnabled {
+                        logger.debug("[debug] unlock: access token refreshed successfully")
+                    }
+                } catch {
+                    // Refresh failed — keep the old token; sync will fail with 401 (non-fatal).
+                    logger.warning("Unlock: token refresh failed — sync may fail: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        } else {
+            logger.error("Unlock: access token not found in Keychain — sync will fail with 401")
+        }
+    }
 
     /// Completes a successful token exchange: decrypts vault key, stores credentials, returns Account.
     private func finalizeSession(
@@ -725,6 +842,7 @@ final class AuthRepositoryImpl: AuthRepository, EmbeddedBiometricUnlock {
         try keychain.write(data: envJSON, key: KeychainKey.user(userId, "serverEnvironment"))
 
         await apiClient.setAccessToken(accessToken)
+        restorePINSession(userId: userId, vaultKeys: vaultKeys)
 
         return Account(
             userId:            userId,
