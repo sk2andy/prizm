@@ -334,7 +334,7 @@ struct VaultBrowserView: View {
 
     private var sidebarBackground: some View {
         LinearGradient(
-            colors: [Color.accentColor.opacity(0.12), Color.teal.opacity(0.07)],
+            colors: [Color.primary.opacity(0.06), Color.primary.opacity(0.02)],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         .background(Color(nsColor: .windowBackgroundColor))
@@ -467,7 +467,9 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
     }
 
     private func splitItem<V: View>(_ view: V, minimum: CGFloat, colorScheme: ColorScheme) -> NSSplitViewItem {
-        let host = NSHostingController(rootView: AnyView(view.environment(\.colorScheme, colorScheme)))
+        let host = NSHostingController(rootView: AnyView(
+            view.environment(\.colorScheme, colorScheme).tint(Color("AccentColor"))
+        ))
         host.safeAreaRegions = []
         host.sizingOptions = []
         let item = NSSplitViewItem(viewController: host)
@@ -478,13 +480,13 @@ private struct VaultSplitView<Sidebar: View, Content: View, Detail: View>: NSVie
     func updateNSViewController(_ controller: NSSplitViewController, context: Context) {
         let items = controller.splitViewItems
         (items[0].viewController as? NSHostingController<AnyView>)?.rootView = AnyView(
-            sidebar().environment(\.colorScheme, context.environment.colorScheme)
+            sidebar().environment(\.colorScheme, context.environment.colorScheme).tint(Color("AccentColor"))
         )
         (items[1].viewController as? NSHostingController<AnyView>)?.rootView = AnyView(
-            content().environment(\.colorScheme, context.environment.colorScheme)
+            content().environment(\.colorScheme, context.environment.colorScheme).tint(Color("AccentColor"))
         )
         (items[2].viewController as? NSHostingController<AnyView>)?.rootView = AnyView(
-            detail().environment(\.colorScheme, context.environment.colorScheme)
+            detail().environment(\.colorScheme, context.environment.colorScheme).tint(Color("AccentColor"))
         )
         items[1].minimumThickness = listMinimum
         if items[0].isCollapsed == isSidebarVisible {

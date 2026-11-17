@@ -34,7 +34,8 @@ struct AboutView: View {
                 Label("View on GitHub", systemImage: "arrow.up.right.square")
                     .font(.callout)
             }
-            .buttonStyle(.link)
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
 
             Spacer().frame(height: 24)
 

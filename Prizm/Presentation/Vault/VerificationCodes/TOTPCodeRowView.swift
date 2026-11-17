@@ -142,7 +142,8 @@ struct TOTPCodeRowView: View {
                 .font(.headline)
                 .textCase(.uppercase)
                 // Clear (not opacity 0) so the button stays in the accessibility tree.
-                .foregroundStyle(isHovered || showCopied ? Color.accentColor : Color.clear)
+                .foregroundStyle(isHovered || showCopied
+                    ? (isSelected ? Color.white : Color.primary) : Color.clear)
                 .padding(.trailing, 4)
         }
         .buttonStyle(.plain)

@@ -53,13 +53,17 @@ The macOS 15 compatibility contribution is tracked separately in [upstream PR #8
 
 ## Screenshots
 
-App views using demonstration vault data.
+Current app views captured with fictional demonstration data.
 
 | Login · Light | Login · Dark |
 |---|---|
 | ![Login details in light appearance](assets/screenshots/login-light.png) | ![Login details in dark appearance](assets/screenshots/login-dark.png) |
 | **Verification codes** | **Card details** |
 | ![Verification codes with the redesigned sidebar](assets/screenshots/codes.png) | ![Card details with the redesigned sidebar](assets/screenshots/card.png) |
+
+| Appearance & auto-lock | Unlock & synchronization |
+|---|---|
+| ![Luma Settings with dark appearance and configurable auto-lock](assets/screenshots/settings.png) | ![Luma Settings with PIN unlock and manual or scheduled synchronization](assets/screenshots/settings-sync.png) |
 
 ---
 

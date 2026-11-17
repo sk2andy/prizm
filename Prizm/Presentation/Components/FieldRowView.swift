@@ -43,7 +43,7 @@ struct FieldRowView: View {
                 } else {
                     Text(value ?? "—")
                         .font(Typography.fieldValue)
-                        .foregroundStyle(url == nil ? Color.primary : Color.accentColor)
+                        .foregroundStyle(Color.primary)
                         .lineLimit(isMultiLine ? nil : 1)
                         .textSelection(.enabled)
                 }
@@ -86,7 +86,7 @@ struct FieldRowView: View {
                 Text(showCopied ? "copied" : "copy")
                     .font(Typography.utility.weight(.medium))
                     .textCase(.uppercase)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Color.primary)
                     .padding(.trailing, Spacing.labelGap)
                     .transition(.opacity)
             }
@@ -100,7 +100,7 @@ struct FieldRowView: View {
                 Image(systemName: "arrow.up.right.square")
                     .imageScale(.medium)
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Color.primary)
             }
             .buttonStyle(.plain)
             .help("Open in browser")

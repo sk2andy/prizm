@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Palette {
     /// Muted selection for vault lists; native controls retain selection contrast.
-    static let listSelection = Color(red: 0.34, green: 0.40, blue: 0.48)
+    static let listSelection = Color(white: 0.38)
 }
 
 // MARK: - Typography

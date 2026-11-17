@@ -36,6 +36,7 @@ struct PrizmApp: App {
                 .environment(optionKeyMonitor)
                 .preferredColorScheme(preferredColorScheme)
                 .environment(\.colorScheme, preferredColorScheme)
+                .tint(Color("AccentColor"))
                 .onAppear { rootVM.startAutomation() }
         }
         .windowStyle(.hiddenTitleBar)
@@ -132,6 +133,7 @@ struct PrizmApp: App {
             AboutView()
                 .preferredColorScheme(preferredColorScheme)
                 .environment(\.colorScheme, preferredColorScheme)
+                .tint(Color("AccentColor"))
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
@@ -152,6 +154,7 @@ struct PrizmApp: App {
             )
             .preferredColorScheme(preferredColorScheme)
             .environment(\.colorScheme, preferredColorScheme)
+            .tint(Color("AccentColor"))
         }
     }
 
