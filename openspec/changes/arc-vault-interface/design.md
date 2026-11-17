@@ -34,6 +34,9 @@ They never persist additional item data.
 | `NSSearchField` inside a small `NSViewRepresentable` | SwiftUI's macOS search placement is tied to window chrome; the approved design needs native search/cancel semantics directly above results. | A plain `TextField` loses the native search control and its accessibility role. |
 | One `NSSplitViewController` with three items | Independent column minimums, native sidebar collapse, and full-height hosting views within one layout. | `HSplitView` applied inconsistent title-bar insets to its nested hosts, clipping headers; nested native controllers add unnecessary sizing boundaries. |
 
-The existing bundle and credential identity are retained for the installed build;
-the approved display name is Luma, with a subtly brushed blue shield icon. UI tests use a separately
+Luma uses bundle ID `de.sk2andy.Luma`, with separate Keychain services
+`de.sk2andy.Luma` and `de.sk2andy.Luma.biometric`. No upstream credentials are
+imported. Local updates need the same Apple Development team for stable Keychain
+access; self-signed certificates still receive a build-specific CDHash partition.
+The approved icon is a subtly brushed blue shield. UI tests use a separately
 identified preview copy with isolated Keychain services.

@@ -60,3 +60,20 @@ of running the complete suite. Existing README images are from the previous pass
 | Hidden AppKit window: traffic-light inset/repeated layout/restoration, divider resizing, minimum widths, collapse/reopen | Passed |
 | Offscreen disclosure rendering: alignment and secondary color | Passed |
 | Full unit/UI suites | Not rerun, per request; no desktop UI automation |
+
+### Separate Luma storage and signing — 2026-11-17
+
+- Use bundle ID `de.sk2andy.Luma` and dedicated normal/biometric Keychain services.
+- Inherit the developer team from ignored LocalConfig instead of the upstream author's team.
+- Reset the installed fork's legacy credentials, preferences, HTTP caches and temporary files on request; no server operations.
+- Sign the local app with Apple Development and a Personal Team provisioning profile.
+
+| Focused verification | Result |
+|---|---|
+| Apple-signed Release build | Passed |
+| Luma service separation and read/update/delete using production Keychain implementations | Passed with synthetic data |
+| Rebuilt binary reads earlier data without authentication UI: legacy and data-protection Keychains | Passed with Apple Development |
+| Self-signed experiment | Rejected: CDHash partition changes across builds |
+| Full unit/UI suites | Not run, per request |
+
+Personal Team profiles expire after seven days; renew through Xcode automatic signing.

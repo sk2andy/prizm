@@ -13,8 +13,8 @@
         <!-- Replace TEAM_ID_HERE with your 10-character Apple Developer Team ID.
              This file is committed to the repo and contains no secrets.
              The actual certificate and credentials live in GitHub Actions secrets. -->
-        <key>de.b0x42.Prizm</key>
-        <string>Prizm Developer ID</string>
+        <key>de.sk2andy.Luma</key>
+        <string>Luma Developer ID</string>
     </dict>
 
     <key>signingStyle</key>

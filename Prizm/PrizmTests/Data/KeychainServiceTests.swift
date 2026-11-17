@@ -1,4 +1,6 @@
 import XCTest
+import Security
+import LocalAuthentication
 @testable import Prizm
 
 /// Tests for KeychainServiceImpl exercising the real macOS Keychain (integration-level).
@@ -22,6 +24,21 @@ final class KeychainServiceTests: XCTestCase {
     override func tearDown() async throws {
         try? sut.delete(key: testKey)
         try await super.tearDown()
+    }
+
+    func testWritesUseLumaService() throws {
+        let key = "luma.namespace-test.\(UUID().uuidString)"
+        defer { try? sut.delete(key: key) }
+        try sut.write(data: Data("test".utf8), key: key)
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: "de.sk2andy.Luma",
+            kSecAttrAccount: key,
+            kSecUseAuthenticationContext: context,
+        ]
+        XCTAssertEqual(SecItemCopyMatching(query as CFDictionary, nil), errSecSuccess)
     }
 
     // MARK: - Write + Read

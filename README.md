@@ -96,6 +96,8 @@ open "Prizm/Prizm.xcodeproj"
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for signing and build instructions, including how to get a free Team ID. Use the fork and branch above instead of the upstream clone command in that guide.
 
+Luma uses its own bundle ID (`de.sk2andy.Luma`) and Keychain services, independently of Prizm. Sign successive local builds with the same Apple Development team to retain Keychain access across updates. Ad-hoc and self-signed builds can trigger new Keychain authorization prompts after each rebuild. A free Personal Team works for local development; its provisioning profile expires after seven days and needs a fresh signed build.
+
 ### Original upstream app
 
 The [upstream releases](https://github.com/b0x42/prizm/releases) and Homebrew commands below install Benjamin's original Prizm, **not this fork's redesigned interface**. Check the upstream release notes for its macOS requirements.

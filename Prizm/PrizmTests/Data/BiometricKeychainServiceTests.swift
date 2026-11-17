@@ -1,4 +1,6 @@
 import XCTest
+import Security
+import LocalAuthentication
 @testable import Prizm
 
 /// Tests for `BiometricKeychainServiceImpl`.
@@ -22,6 +24,21 @@ final class BiometricKeychainServiceTests: XCTestCase {
     override func tearDown() async throws {
         try? sut.deleteBiometric(key: testKey)
         try await super.tearDown()
+    }
+
+    func testWritesUseLumaService() throws {
+        let key = "luma.namespace-test.\(UUID().uuidString)"
+        defer { try? sut.deleteBiometric(key: key) }
+        try sut.writeBiometric(data: Data("test".utf8), key: key)
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: "de.sk2andy.Luma.biometric",
+            kSecAttrAccount: key,
+            kSecUseAuthenticationContext: context,
+        ]
+        XCTAssertEqual(SecItemCopyMatching(query as CFDictionary, nil), errSecSuccess)
     }
 
     // MARK: - Write + Read

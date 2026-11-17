@@ -11,7 +11,7 @@ import os.log
 /// - The item is invalidated if the user adds or removes a fingerprint.
 ///
 /// Uses `kSecUseDataProtectionKeychain: true` so the access group is inferred from
-/// the `keychain-access-groups` entitlement (`$(AppIdentifierPrefix)com.prizm`),
+/// the `keychain-access-groups` entitlement (`$(AppIdentifierPrefix)de.sk2andy.Luma`),
 /// ensuring the item is not accessible to other apps or processes
 /// (Constitution Security Requirement property 3).
 ///
@@ -21,7 +21,7 @@ import os.log
 /// Standards: design Decision 2 (`.biometryCurrentSet`), Decision 3 (separate service).
 final class BiometricKeychainServiceImpl: BiometricKeychainService {
 
-    private let service = "com.prizm.biometric"
+    private let service = "de.sk2andy.Luma.biometric"
     private let logger = Logger(subsystem: "com.prizm", category: "BiometricKeychain")
     private let useDataProtectionKeychain: Bool
 
@@ -116,7 +116,7 @@ final class BiometricKeychainServiceImpl: BiometricKeychainService {
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
                 context.evaluatePolicy(
                     .deviceOwnerAuthenticationWithBiometrics,
-                    localizedReason: "unlock your Prizm vault"
+                    localizedReason: "unlock your Luma vault"
                 ) { _, error in
                     if let error = error { cont.resume(throwing: error) }
                     else { cont.resume() }
@@ -150,7 +150,7 @@ final class BiometricKeychainServiceImpl: BiometricKeychainService {
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
                 context.evaluatePolicy(
                     .deviceOwnerAuthenticationWithBiometrics,
-                    localizedReason: "unlock your Prizm vault"
+                    localizedReason: "unlock your Luma vault"
                 ) { _, error in
                     if let error = error { cont.resume(throwing: error) }
                     else { cont.resume() }
